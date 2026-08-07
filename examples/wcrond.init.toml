@@ -1,0 +1,33 @@
+# =============================================================================
+# wcrond.toml — Configuración del sistema wcrond
+# =============================================================================
+# Ubicación por defecto: %USERPROFILE%/.wcrond/wcrond.toml
+# Puede sobreescribirse con: wcrond --config <path>
+
+[daemon]
+tick_interval = 1.0
+default_shell = "powershell"
+default_working_dir = "%USERPROFILE%"
+
+[pool]
+max_workers = 4
+default_timeout = 3600
+grace_period = 16
+
+[retry]
+max_retries = 3
+initial_delay_s = 30
+backoff_multiplier = 2.0
+max_delay_s = 300
+
+[logging]
+log_dir = "logs"
+level = "INFO"
+
+[database]
+path = "data/wcrond.db"
+history_retention_days = 30
+
+[watchdog]
+check_interval = 30
+auto_kill_zombies = true

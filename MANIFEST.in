@@ -1,1 +1,3 @@
-include examples/*.toml
+include examples/wcrond.toml
+include examples/wcrond.init.toml
+include examples/wcrontab.init.toml

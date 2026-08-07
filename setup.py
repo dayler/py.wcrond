@@ -17,7 +17,7 @@ def setup_wcrond_config():
         project_root = Path(__file__).parent.absolute()
         examples_dir = project_root / 'examples'
         
-        wcrond_toml_src = examples_dir / 'wcrond.toml'
+        wcrond_toml_src = examples_dir / 'wcrond.init.toml'
         wcrontab_init_src = examples_dir / 'wcrontab.init.toml'
         
         wcrond_conf = base_dir / 'wcrond.toml'

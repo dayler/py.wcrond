@@ -58,8 +58,8 @@ def init_wcrond(config):
             
     wcrond_conf = base / "wcrond.toml"
     if not wcrond_conf.exists():
-        if examples_dir and (examples_dir / "wcrond.toml").exists():
-            shutil.copy(examples_dir / "wcrond.toml", wcrond_conf)
+        if examples_dir and (examples_dir / "wcrond.init.toml").exists():
+            shutil.copy(examples_dir / "wcrond.init.toml", wcrond_conf)
         else:
             wcrond_conf.touch(exist_ok=True)
             

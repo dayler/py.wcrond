@@ -36,10 +36,15 @@ def test_init_wcrond(tmp_path):
     assert wcrond_conf.exists()
     assert wcrontab_conf.exists()
     
-    # If examples directory was found, sizes should be > 0
     # During tests run from source, examples dir should be found
     if wcrond_conf.stat().st_size > 0:
-        assert b"[daemon]" in wcrond_conf.read_bytes()
+        # Verify it is exactly the same file as examples/wcrond.init.toml
+        from pathlib import Path
+        project_root = Path(__file__).parent.parent
+        init_toml_path = project_root / "examples" / "wcrond.init.toml"
+        if init_toml_path.exists():
+            assert wcrond_conf.read_bytes() == init_toml_path.read_bytes()
+
     if wcrontab_conf.stat().st_size > 0:
         assert b"[jobs" in wcrontab_conf.read_bytes()
 

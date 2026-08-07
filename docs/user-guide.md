@@ -44,9 +44,6 @@ max_delay_s = 300
 [logging]
 log_dir = "logs"
 level = "INFO"
-max_bytes = 10485760
-backup_count = 5
-capture_job_output = true
 
 [database]
 path = "data/wcrond.db"
@@ -56,6 +53,46 @@ history_retention_days = 30
 check_interval = 30
 auto_kill_zombies = true
 ```
+
+### Propiedades de `wcrond.toml`
+
+**Sección `[daemon]`:**
+- `tick_interval`: (float) Intervalo en segundos en que el scheduler verifica tareas pendientes.
+- `default_shell`: (string) Shell por defecto para comandos (`powershell`, `cmd`, `bash`).
+- `default_working_dir`: (string) Directorio de trabajo base si el job no especifica uno.
+- `pid_file`: (string) Ruta del archivo PID relativo a `~/.wcrond/`.
+
+**Sección `[pool]`:**
+- `max_workers`: (int) Número máximo de hilos (threads) concurrentes para ejecutar trabajos.
+- `default_timeout`: (int) Tiempo máximo de ejecución en segundos para trabajos si no lo sobreescriben.
+- `grace_period`: (int) Segundos de gracia tras enviar una señal de terminación antes de forzar un kill.
+
+**Sección `[retry]` (Global defaults):**
+- `max_retries`: (int) Cantidad máxima de intentos ante un fallo.
+- `initial_delay_s`: (int) Segundos a esperar antes del primer reintento.
+- `backoff_multiplier`: (float) Factor multiplicador para el delay en cada reintento subsiguiente.
+- `max_delay_s`: (int) Tope máximo de espera (en segundos) para cualquier reintento.
+
+**Sección `[logging]`:**
+- `log_dir`: (string) Directorio relativo donde se guardan los archivos de log.
+- `level`: (string) Nivel de logs (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).
+- `max_bytes`: (int) Tamaño máximo en bytes antes de rotar logs (por defecto 10MB).
+- `backup_count`: (int) Archivos rotados a conservar.
+- `capture_job_output`: (bool) Captura y persiste stdout/stderr de cada job por separado.
+- `output_tail_lines`: (int) Máximo de líneas a retener en la DB por cada stream (stdout/stderr).
+
+**Sección `[database]`:**
+- `path`: (string) Ruta relativa de la base de datos SQLite.
+- `history_retention_days`: (int) Días que se conservan los registros de ejecuciones antiguas.
+- `cleanup_interval_hours`: (int) Cada cuántas horas corre la tarea de purga automática.
+
+**Sección `[ipc]`:**
+- `pipe_name`: (string) Nombre del Named Pipe usado para IPC (`\\\\.\\pipe\\wcrond`).
+- `client_timeout`: (int) Segundos que el cliente CLI espera respuesta antes de fallar.
+
+**Sección `[watchdog]`:**
+- `check_interval`: (int) Segundos entre evaluaciones para detectar y procesar trabajos zombis.
+- `auto_kill_zombies`: (bool) Activa la terminación automática de procesos huérfanos/excedidos.
 
 ## 3. Configuración de Tareas (`wcrontab.toml`)
 
@@ -83,6 +120,23 @@ initial_delay_s = 60
 backoff_multiplier = 2.0
 max_delay_s = 600
 ```
+
+### Propiedades de Job en `wcrontab.toml`
+
+**Propiedades Base:**
+- `schedule`: (string) Expresión CRON (5 campos o macro como `@daily`).
+- `command`: (string) Comando a ejecutar.
+- `shell`: (string, opcional) Shell específico, sobreescribe al global.
+- `working_dir`: (string, opcional) Directorio de ejecución, sobreescribe al global.
+- `timeout`: (int, opcional) Tiempo límite en segundos para la tarea.
+- `overlap_policy`: (string, opcional) Comportamiento ante ejecuciones encimadas: `allow` (permitir), `skip` (omitir), o `kill_previous` (matar ejecución anterior).
+- `enabled`: (bool) Habilita o deshabilita la tarea de forma individual.
+
+**Subsección `[...env]`:**
+- Define pares clave-valor que se inyectan como variables de entorno directamente en el subproceso de la tarea.
+
+**Subsección `[...retry]`:**
+- Sobrescribe la política de reintentos global para esta tarea específica (`max_retries`, `initial_delay_s`, `backoff_multiplier`, `max_delay_s`).
 
 ### Expresiones Cron Soportadas
 
