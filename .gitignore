@@ -1,0 +1,48 @@
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Build and distribution
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Testing and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+coverage.xml
+*.cover
+*.py,cover
+
+# Databases and logs
+*.sqlite3
+*.db
+logs/
+*.log
+
+# IDEs and editors
+.idea/
+.vscode/
+.obsidian/
+*.swp
+*.swo
+
+# Local app configuration
+.wcrond/

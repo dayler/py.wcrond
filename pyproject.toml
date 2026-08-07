@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wcrond"
+version = "1.0.0"
+description = "Windows Cron Daemon"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "croniter",
+    "pywin32",
+    "tomli; python_version < '3.11'"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
+
+[project.scripts]
+wcrond = "wcrond.__main__:main"
+wcrond-ctl = "wcrond_ctl.__main__:main"

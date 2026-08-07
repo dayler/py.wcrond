@@ -1,0 +1,82 @@
+# =============================================================================
+# wcrond.toml — Configuración del sistema wcrond
+# =============================================================================
+# Ubicación por defecto: %USERPROFILE%/.wcrond/wcrond.toml
+# Puede sobreescribirse con: wcrond --config <path>
+
+[daemon]
+# Intervalo del tick del scheduler en segundos.
+# El daemon verifica tareas pendientes en cada tick.
+tick_interval = 1.0
+
+# Archivo PID para detectar instancias duplicadas.
+pid_file = "data/wcrond.pid"              # Relativo a ~/.wcrond/
+
+# Shell por defecto para ejecutar comandos.
+# Soporta: "cmd", "powershell", "pwsh", "bash", o ruta absoluta.
+default_shell = "powershell"
+
+# Directorio de trabajo por defecto para los jobs.
+default_working_dir = "%USERPROFILE%"
+
+[pool]
+# Número máximo de threads para ejecución concurrente de tareas.
+# Recomendación: 2x número de cores para I/O-bound, o 1x para CPU-bound.
+max_workers = 4
+
+# Tiempo máximo de ejecución por defecto para un job (en segundos).
+# Jobs individuales pueden sobreescribir este valor.
+default_timeout = 3600
+
+# Período de gracia tras enviar terminate() antes de kill() (en segundos).
+grace_period = 16
+
+[retry]
+# Valores por defecto para reintentos. Cada job puede sobreescribirlos.
+max_retries = 3
+initial_delay_s = 30
+backoff_multiplier = 2.0
+max_delay_s = 300
+
+[logging]
+# Directorio de logs (relativo a ~/.wcrond/).
+log_dir = "logs"
+
+# Nivel de logging: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+level = "INFO"
+
+# Tamaño máximo del archivo de log antes de rotar (en bytes).
+max_bytes = 10_485_760        # 10 MB
+
+# Número de archivos de log rotados a conservar.
+backup_count = 5
+
+# Si es true, también se captura stdout/stderr de cada job en archivos individuales.
+capture_job_output = true
+
+# Número máximo de líneas de stdout/stderr a almacenar en la DB por ejecución.
+output_tail_lines = 100
+
+[database]
+# Ruta a la base de datos SQLite (relativa a ~/.wcrond/).
+path = "data/wcrond.db"
+
+# Días de retención del historial de ejecuciones. Registros más viejos se purgan.
+history_retention_days = 30
+
+# Intervalo de purga automática (en horas).
+cleanup_interval_hours = 24
+
+[ipc]
+# Nombre del Named Pipe para comunicación CLI <-> Daemon.
+pipe_name = "\\\\.\\pipe\\wcrond"
+
+# Timeout de conexión para el CLI en segundos.
+client_timeout = 5
+
+[watchdog]
+# Intervalo entre chequeos del watchdog (en segundos).
+check_interval = 30
+
+# Si es true, se termina automáticamente las tareas zombie.
+auto_kill_zombies = true

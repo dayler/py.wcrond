@@ -1,0 +1,143 @@
+# =============================================================================
+# wcrontab.toml — Definición de Jobs Programados
+# =============================================================================
+# Ubicación por defecto: %USERPROFILE%/.wcrond/wcrontab.toml
+# Jobs adicionales pueden colocarse en: %USERPROFILE%/.wcrond/jobs.d/*.toml
+#
+# Sintaxis cron de 5 campos:
+#   .---------------- minute (0 - 59)
+#   |  .------------- hour (0 - 23)
+#   |  |  .---------- day of month (1 - 31)
+#   |  |  |  .------- month (1 - 12) OR jan,feb,mar,...
+#   |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,...
+#   |  |  |  |  |
+#   *  *  *  *  *
+#
+# Shortcuts soportados: @yearly, @monthly, @weekly, @daily, @hourly, @reboot
+
+# -----------------------------------------------------------------------------
+# Job: Backup de base de datos — Todos los días a la 1:01 AM
+# -----------------------------------------------------------------------------
+# [jobs.backup_db]
+# schedule = "01 01 * * *"
+# command = "C:\\scripts\\backup_database.ps1"
+# shell = "powershell"                     # Sobreescribe el shell por defecto
+# working_dir = "C:\\backups"
+# timeout = 1800                           # 30 minutos max
+# overlap_policy = "skip"                  # No ejecutar si ya está corriendo
+# enabled = true
+
+# [jobs.backup_db.retry]
+# max_retries = 5
+# initial_delay_s = 60
+# backoff_multiplier = 2.0
+# max_delay_s = 600
+
+# [jobs.backup_db.env]
+# BACKUP_DEST = "D:\\backups\\db"
+# LOG_LEVEL = "verbose"
+
+# -----------------------------------------------------------------------------
+# Job: Limpieza de archivos temporales — Cada domingo a las 3:00 AM
+# -----------------------------------------------------------------------------
+# [jobs.cleanup_temp]
+# schedule = "0 3 * * 0"
+# command = 'Remove-Item -Path "$env:TEMP\\*" -Recurse -Force -ErrorAction SilentlyContinue'
+# shell = "powershell"
+# timeout = 600
+# overlap_policy = "skip"
+# enabled = true
+
+# Sin reintentos para este job (usa defaults si se omite, o se desactiva así):
+# [jobs.cleanup_temp.retry]
+# max_retries = 0
+
+# -----------------------------------------------------------------------------
+# Job: Sincronización de archivos — Cada 15 minutos durante horario laboral
+# -----------------------------------------------------------------------------
+# [jobs.sync_files]
+# schedule = "*/15 08-18 * * mon-fri"
+# command = "robocopy C:\\Projects D:\\Sync\\Projects /MIR /R:2 /W:5"
+# shell = "cmd"
+# timeout = 300
+# overlap_policy = "skip"
+# enabled = true
+
+# Usa defaults de retry (heredados de wcrond.toml)
+
+# -----------------------------------------------------------------------------
+# Job: Reporte mensual — Primer día de cada mes a las 6:00 AM
+# -----------------------------------------------------------------------------
+# [jobs.monthly_report]
+# schedule = "@monthly"
+# command = "python C:\\scripts\\generate_report.py --month previous"
+# shell = "cmd"
+# timeout = 7200
+# overlap_policy = "allow"                 # Permitir overlap (ejecución lenta)
+# enabled = true
+
+# [jobs.monthly_report.retry]
+# max_retries = 3
+# initial_delay_s = 120
+# backoff_multiplier = 3.0
+# max_delay_s = 900
+
+# [jobs.monthly_report.env]
+# REPORT_OUTPUT = "C:\\Reports"
+# SMTP_SERVER = "smtp.company.com"
+
+# -----------------------------------------------------------------------------
+# Job: Health check — Cada 5 minutos, siempre
+# -----------------------------------------------------------------------------
+# [jobs.health_check]
+# schedule = "*/5 * * * *"
+# command = "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\""
+# shell = "cmd"
+# timeout = 30
+# overlap_policy = "skip"
+# enabled = true
+
+# [jobs.health_check.retry]
+# max_retries = 2
+# initial_delay_s = 10
+# backoff_multiplier = 1.5
+# max_delay_s = 30
+
+# -----------------------------------------------------------------------------
+# Job: Ejecución al inicio del daemon — Script de inicialización
+# -----------------------------------------------------------------------------
+# [jobs.startup_init]
+# schedule = "@reboot"
+# command = "C:\\scripts\\on_startup.bat"
+# shell = "cmd"
+# timeout = 120
+# overlap_policy = "skip"
+# enabled = true
+
+# [jobs.startup_init.retry]
+# max_retries = 1
+# initial_delay_s = 10
+# backoff_multiplier = 1.0
+# max_delay_s = 10
+
+# -----------------------------------------------------------------------------
+# Job: Reporte trimestral — Día 1 de ene, abr, jul, oct a las 3:02 AM
+# -----------------------------------------------------------------------------
+# [jobs.quarterly_report]
+# schedule = "02 03 1 1,4,7,10 *"
+# command = "python C:\\scripts\\quarterly_report.py"
+# shell = "cmd"
+# timeout = 3600
+# overlap_policy = "skip"
+# enabled = true
+
+# -----------------------------------------------------------------------------
+# Job: Recordatorio horario — Entre 9 AM y 5 PM, lunes a viernes
+# -----------------------------------------------------------------------------
+# [jobs.hourly_reminder]
+# schedule = "01 09-17 * * 1-5"
+# command = 'powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show(\"Toma un descanso!\", \"Reminder\")"'
+# shell = "cmd"
+# timeout = 10
+# overlap_policy = "skip"
+# enabled = false                          # Deshabilitado por defecto
