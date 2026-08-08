@@ -116,6 +116,10 @@ class IPCServer:
                     resp = self.handle_request(req)
                     resp_bytes = json.dumps(resp).encode("utf-8")
                     win32file.WriteFile(pipe, resp_bytes)
+                    try:
+                        win32file.FlushFileBuffers(pipe)
+                    except Exception:
+                        pass
         except Exception as e:
             logger.error(f"Error handling IPC client: {e}")
         finally:

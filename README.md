@@ -63,20 +63,40 @@ wcrond-ctl list
 wcrond-ctl logs --job hello_world
 ```
 
-## 🛠️ Comandos CLI
+## 🛠️ Referencia Rápida de Comandos
 
-El comando `wcrond-ctl` permite interactuar con el daemon:
+### Daemon (`wcrond`)
+El binario principal controla el ciclo de vida del servicio en segundo plano.
 
-| Comando | Descripción |
-|---------|-------------|
-| `status` | Muestra el estado general del daemon |
-| `list` | Lista todos los jobs programados |
-| `history` | Muestra el historial de ejecuciones |
-| `run <job>` | Fuerza la ejecución inmediata de un job |
-| `kill <job>` | Fuerza la terminación de un job en ejecución |
-| `logs` | Muestra los logs del sistema o de un job |
+| Comando | Flags | Descripción y Ejemplo |
+|---------|-------|------------------------|
+| `init`  | `--config <ruta>` | Crea la estructura inicial en `~/.wcrond`.<br>Ej: `wcrond init` |
+| `start` | `--foreground`, `--config <ruta>` | Inicia el demonio. Usa `--foreground` para bloquear la terminal.<br>Ej: `wcrond start --foreground` |
+| `status`| `--config <ruta>` | Comprueba rápidamente si el demonio está activo. Retorna código 0 si corre.<br>Ej: `wcrond status` |
+| `stop`  | `--config <ruta>` | Envía una señal IPC para apagar el demonio en ejecución.<br>Ej: `wcrond stop` |
 
-Para más detalles, consulta la [Referencia del CLI](docs/cli-reference.md).
+### Control CLI (`wcrond-ctl`)
+Permite interactuar con el demonio en tiempo real.
+
+| Comando | Flags/Argumentos | Descripción y Ejemplo |
+|---------|------------------|------------------------|
+| `status` | N/A | Muestra tiempo de actividad y estado de hilos/jobs.<br>Ej: `wcrond-ctl status` |
+| `list` | N/A | Enumera todos los jobs configurados y su estado.<br>Ej: `wcrond-ctl list` |
+| `history` | `--job <id>`, `--last <N>`, `--since <ISO>` | Muestra historial de ejecuciones.<br>Ej: `wcrond-ctl history --last 10` |
+| `retries` | N/A | Muestra trabajos encolados para reintento tras fallar.<br>Ej: `wcrond-ctl retries` |
+| `next` | `--job <id>` | Lista cuándo será la próxima ejecución esperada.<br>Ej: `wcrond-ctl next` |
+| `run` | `<job_id>` | Dispara la ejecución inmediata de un trabajo.<br>Ej: `wcrond-ctl run hello_world` |
+| `kill` | `<job_id>` | Fuerza la terminación (SIGKILL) de un trabajo activo.<br>Ej: `wcrond-ctl kill hello_world` |
+| `disable` | `<job_id>` | Pausa futuras ejecuciones programadas del trabajo.<br>Ej: `wcrond-ctl disable hello_world` |
+| `enable` | `<job_id>` | Reanuda las ejecuciones de un trabajo pausado.<br>Ej: `wcrond-ctl enable hello_world` |
+| `cancel-retry`| `<job_id>` | Elimina un job específico de la cola de reintentos.<br>Ej: `wcrond-ctl cancel-retry hello_world` |
+| `logs` | `--job <id>`, `--tail <N>` | Muestra la salida (stdout/stderr) capturada.<br>Ej: `wcrond-ctl logs --job hello_world --tail 20` |
+| `zombies`| N/A | Detecta procesos huérfanos que excedieron su timeout.<br>Ej: `wcrond-ctl zombies` |
+| `reload` | N/A | Recarga la configuración y jobs sin apagar el demonio.<br>Ej: `wcrond-ctl reload` |
+| `validate`| N/A | Valida la sintaxis del cron en tus archivos `.toml`.<br>Ej: `wcrond-ctl validate` |
+| `stop` | N/A | Apaga el demonio de wcrond.<br>Ej: `wcrond-ctl stop` |
+
+Para más detalles exhaustivos, consulta el [Manual de Usuario](docs/user-guide.md).
 
 ## 📚 Documentación
 

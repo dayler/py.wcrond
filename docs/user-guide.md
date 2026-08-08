@@ -109,6 +109,7 @@ working_dir = "C:\\scripts"
 timeout = 1800
 overlap_policy = "skip"
 enabled = true
+silent = false
 
 [jobs.mi_tarea_diaria.env]
 PATH = "C:\\Python310;C:\\Windows\\System32"
@@ -131,6 +132,7 @@ max_delay_s = 600
 - `timeout`: (int, opcional) Tiempo límite en segundos para la tarea.
 - `overlap_policy`: (string, opcional) Comportamiento ante ejecuciones encimadas: `allow` (permitir), `skip` (omitir), o `kill_previous` (matar ejecución anterior).
 - `enabled`: (bool) Habilita o deshabilita la tarea de forma individual.
+- `silent`: (bool, opcional) Suprime la ventana de consola en Windows (`CREATE_NO_WINDOW`). Por defecto es `true`. Si tu tarea lanza una UI gráfica, colócalo en `false`.
 
 **Subsección `[...env]`:**
 - Define pares clave-valor que se inyectan como variables de entorno directamente en el subproceso de la tarea.
@@ -154,15 +156,95 @@ wcrond soporta el formato estándar de 5 campos y los siguientes atajos:
 
 Puedes estructurar tus trabajos en múltiples archivos. Cualquier archivo con extensión `.toml` dentro del directorio `%USERPROFILE%\.wcrond\jobs.d/` será analizado automáticamente por wcrond.
 
-## 5. Monitoreo y Supervisión
+## 5. Referencia de Comandos (CLI)
 
-Utiliza la herramienta `wcrond-ctl` para supervisar tu sistema.
+El sistema provee dos binarios principales: `wcrond` (para gestionar el servicio base) y `wcrond-ctl` (para monitorear e interactuar con los trabajos).
 
-- **Estado del daemon**: `wcrond-ctl status`
-- **Lista de trabajos**: `wcrond-ctl list`
-- **Historial**: `wcrond-ctl history`
-- **Próximas ejecuciones**: `wcrond-ctl next`
-- **Logs**: `wcrond-ctl logs` o `wcrond-ctl logs --job nombre_job`
+### 5.1 Comandos del Demonio (`wcrond`)
+
+Estos comandos controlan el ciclo de vida del servicio en background.
+
+*   `wcrond init [--config <ruta>]`
+    *   **Descripción:** Genera la estructura de carpetas (`jobs.d/`, `logs/`) y los archivos de configuración por defecto (`wcrond.toml`, `wcrontab.toml`) en el directorio especificado. Por defecto utiliza `%USERPROFILE%\.wcrond`.
+    *   **Ejemplo:** `wcrond init`
+
+*   `wcrond start [--foreground] [--config <ruta>]`
+    *   **Descripción:** Inicia el demonio. Sin banderas, el proceso se bifurca silenciosamente al fondo (background process).
+    *   **Flags:**
+        *   `--foreground`: Ejecuta el demonio anexado a la terminal actual (ideal para debugging o contenedores).
+        *   `--config <ruta>`: Especifica un archivo de configuración base distinto.
+    *   **Ejemplo:** `wcrond start --foreground`
+
+*   `wcrond status [--config <ruta>]`
+    *   **Descripción:** Comprueba si el demonio está activo intentando conectarse a su pipe IPC. Retorna silenciosamente un exit code `0` si está corriendo, o `1` en caso contrario. Útil para scripts de validación.
+    *   **Ejemplo:** `wcrond status`
+
+*   `wcrond stop [--config <ruta>]`
+    *   **Descripción:** Envía de forma segura una señal de apagado al demonio en ejecución para que cierre su base de datos y detenga tareas planificadas.
+    *   **Ejemplo:** `wcrond stop`
+
+### 5.2 Comandos de Control (`wcrond-ctl`)
+
+Herramienta diseñada para supervisar y operar sobre los trabajos programados en un demonio en ejecución.
+
+*   `status`
+    *   **Descripción:** Imprime el estado del demonio, su tiempo de actividad (uptime), total de jobs registrados, hilos de ejecución activos y trabajos encolados por reintento.
+    *   **Ejemplo:** `wcrond-ctl status`
+
+*   `list`
+    *   **Descripción:** Muestra una tabla con todos los trabajos configurados, su expresión cron, si están habilitados, y la fecha de su última ejecución.
+    *   **Ejemplo:** `wcrond-ctl list`
+
+*   `history [--job <id>] [--last <N>] [--since <ISO>]`
+    *   **Descripción:** Expone el registro de las ejecuciones previas (exitosas o fallidas), detallando los tiempos, duración, y el código de salida.
+    *   **Flags:**
+        *   `--job <id>`: Filtra el historial solo para el trabajo con este ID.
+        *   `--last <N>`: Limita la salida a los últimos N registros.
+        *   `--since <YYYY-MM-DD>`: Muestra solo registros desde esta fecha.
+    *   **Ejemplo:** `wcrond-ctl history --job respaldo_diario --last 5`
+
+*   `retries`
+    *   **Descripción:** Imprime la cola interna de reintentos activos mostrando el job, número de intento y a qué hora será relanzado.
+    *   **Ejemplo:** `wcrond-ctl retries`
+
+*   `run <job_id>`
+    *   **Descripción:** Pone un trabajo en ejecución de inmediato, sin importar su horario programado (`schedule`). 
+    *   **Ejemplo:** `wcrond-ctl run limpieza_cache`
+
+*   `kill <job_id>`
+    *   **Descripción:** Si el trabajo está actualmente en ejecución, envía una señal para terminar (matar) el subproceso a nivel del sistema operativo.
+    *   **Ejemplo:** `wcrond-ctl kill script_lento`
+
+*   `cancel-retry <job_id>`
+    *   **Descripción:** Si un trabajo falló y está esperando en la cola para su próximo reintento (backoff), esto purgará dicho trabajo de la cola evitando que se reintente.
+    *   **Ejemplo:** `wcrond-ctl cancel-retry reporte_falla`
+
+*   `disable <job_id>` / `enable <job_id>`
+    *   **Descripción:** Pausa (disable) o reanuda (enable) dinámicamente un trabajo, afectando solo al estado en memoria del demonio.
+    *   **Ejemplo:** `wcrond-ctl disable notificaciones_email`
+
+*   `logs [--job <id>] [--tail <N>]`
+    *   **Descripción:** Muestra la salida estándar y error capturada de las tareas directamente en consola.
+    *   **Flags:**
+        *   `--job <id>`: Ve la salida de un solo trabajo.
+        *   `--tail <N>`: Limita las líneas de log a leer.
+    *   **Ejemplo:** `wcrond-ctl logs --job respaldo_diario --tail 50`
+
+*   `zombies`
+    *   **Descripción:** Lista posibles trabajos detectados como "zombis" (aquéllos en base de datos como RUNNING pero cuyo subproceso se extinguió sin notificar, o superaron drásticamente su `timeout`).
+    *   **Ejemplo:** `wcrond-ctl zombies`
+
+*   `next [--job <id>]`
+    *   **Descripción:** Calcula y muestra exactamente a qué fecha y hora está programado que se ejecute la próxima vez un trabajo.
+    *   **Ejemplo:** `wcrond-ctl next --job respaldo_diario`
+
+*   `reload`
+    *   **Descripción:** Refresca `wcrond.toml` y toda la carpeta `jobs.d/` para adoptar cambios sin reiniciar todo el demonio.
+    *   **Ejemplo:** `wcrond-ctl reload`
+
+*   `validate`
+    *   **Descripción:** Verifica estáticamente los archivos `.toml` comprobando errores de formato cron y alertando de claves inválidas.
+    *   **Ejemplo:** `wcrond-ctl validate`
 
 ## 6. Resolución de Problemas (Troubleshooting)
 

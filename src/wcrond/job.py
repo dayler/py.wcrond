@@ -23,6 +23,7 @@ class CronJob:
     working_dir: Optional[str] = None
     on_success: Optional[str] = None
     on_failure: Optional[str] = None
+    silent: bool = True
 
     def __post_init__(self):
         if not self.name:

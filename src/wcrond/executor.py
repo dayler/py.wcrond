@@ -71,6 +71,8 @@ class Executor:
         try:
             # subprocess.CREATE_NEW_PROCESS_GROUP = 512 in windows
             creationflags = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 512)
+            if job.silent:
+                creationflags |= 0x08000000
             
             process = subprocess.Popen(
                 cmd_args,

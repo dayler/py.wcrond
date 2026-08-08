@@ -82,6 +82,7 @@ class WcrontabParser:
                 working_dir=job_dict.get("working_dir", self.config.default_working_dir),
                 on_success=job_dict.get("on_success"),
                 on_failure=job_dict.get("on_failure"),
+                silent=bool(job_dict.get("silent", True)),
             )
             jobs[job_id] = job
             

@@ -8,9 +8,14 @@ from wcrond.config import WcrondConfig
 @pytest.fixture
 def e2e_env(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    # Init config
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     subprocess.run(["wcrond", "init"], check=True)
+    
+    # Use unique pipe name for each test
+    config_file = tmp_path / ".wcrond" / "wcrond.toml"
+    content = config_file.read_text(encoding="utf-8")
+    content = content.replace('\\\\.\\pipe\\wcrond', f'\\\\.\\pipe\\wcrond_e2e_{os.getpid()}_{time.time_ns()}')
+    config_file.write_text(content, encoding="utf-8")
     
     # Start daemon
     proc = subprocess.Popen(["wcrond", "start", "--foreground"])
@@ -24,9 +29,13 @@ def e2e_env(tmp_path, monkeypatch):
     proc.wait(timeout=5)
 
 def test_e2e_status(e2e_env):
-    res = subprocess.run(["wcrond-ctl", "status"], capture_output=True, text=True)
+    res = subprocess.run(["wcrond-ctl", "status"], capture_output=True, encoding="utf-8")
     assert res.returncode == 0
     assert "Uptime" in res.stdout
+    
+    res = subprocess.run(["wcrond", "status"], capture_output=True, encoding="utf-8")
+    assert res.returncode == 0
+    assert "wcrond is running" in res.stdout
 
 def test_e2e_list(e2e_env):
     # Create a job
@@ -82,7 +91,7 @@ def test_e2e_disable_enable(e2e_env):
     pass
 
 def test_e2e_validate(e2e_env):
-    res = subprocess.run(["wcrond-ctl", "validate"], capture_output=True, text=True)
+    res = subprocess.run(["wcrond-ctl", "validate"], capture_output=True, encoding="utf-8")
     assert res.returncode == 0
 
 def test_e2e_next(e2e_env):
@@ -92,5 +101,5 @@ def test_e2e_next(e2e_env):
     job_file.write_text("[jobs.e2e_next]\ncommand = 'echo 1'\nschedule = '* * * * *'\n")
     subprocess.run(["wcrond-ctl", "reload"], check=True)
     
-    res = subprocess.run(["wcrond-ctl", "next", "--job", "e2e_next"], capture_output=True, text=True)
+    res = subprocess.run(["wcrond-ctl", "next", "--job", "e2e_next"], capture_output=True, encoding="utf-8")
     assert res.returncode == 0

@@ -10,18 +10,41 @@ from wcrond.daemon import WcrondDaemon
 from wcrond.config import WcrondConfig
 from wcrond.logging_config import setup_logging
 
-def send_ipc_command(config, cmd, **kwargs):
+def send_ipc_command(config, cmd, quiet=False, **kwargs):
     pipe_name = config.ipc_pipe_name
     req = {"cmd": cmd}
     req.update(kwargs)
-    try:
-        handle = win32file.CreateFile(
-            pipe_name,
-            win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-            0, None, win32file.OPEN_EXISTING, 0, None
-        )
-        win32file.SetNamedPipeHandleState(handle, win32pipe.PIPE_READMODE_MESSAGE, None, None)
+    
+    import time
+    start_time = time.time()
+    handle = None
+    
+    while time.time() - start_time < 3.0:
+        try:
+            handle = win32file.CreateFile(
+                pipe_name,
+                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                0, None, win32file.OPEN_EXISTING, 0, None
+            )
+            break
+        except pywintypes.error as e:
+            if e.winerror in (2, 231):
+                time.sleep(0.1)
+                continue
+            if not quiet:
+                print(f"Error communicating with daemon: {e}")
+            return None
+        except Exception as e:
+            if not quiet:
+                print(f"Error communicating with daemon: {e}")
+            return None
+    
+    if not handle:
+        if not quiet:
+            print("Daemon is not running.")
+        return None
         
+    try:
         data = json.dumps(req).encode('utf-8')
         win32file.WriteFile(handle, data)
         
@@ -31,7 +54,8 @@ def send_ipc_command(config, cmd, **kwargs):
         response = json.loads(response_data.decode('utf-8'))
         return response
     except Exception as e:
-        print(f"Error communicating with daemon: {e}")
+        if not quiet:
+            print(f"Error communicating with daemon: {e}")
         return None
 
 import shutil
@@ -84,6 +108,9 @@ def main():
     start_p.add_argument("--foreground", action="store_true")
     start_p.add_argument("--config")
 
+    status_p = subparsers.add_parser("status")
+    status_p.add_argument("--config")
+
     stop_p = subparsers.add_parser("stop")
     stop_p.add_argument("--config")
     
@@ -117,6 +144,15 @@ def main():
             print("Daemon stopping...")
         else:
             print("Failed to stop daemon.")
+    elif args.command == "status":
+        res = send_ipc_command(config, "status", quiet=True)
+        if res and res.get("status") == "ok":
+            uptime = res.get("data", {}).get("uptime", 0)
+            print(f"wcrond is running (Uptime: {uptime}s)")
+            sys.exit(0)
+        else:
+            print("wcrond is not running.")
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()

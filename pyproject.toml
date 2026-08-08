@@ -22,3 +22,11 @@ dev = [
 [project.scripts]
 wcrond = "wcrond.__main__:main"
 wcrond-ctl = "wcrond_ctl.__main__:main"
+
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-report=term-missing"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]

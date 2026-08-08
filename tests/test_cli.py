@@ -61,3 +61,93 @@ def test_cli_run_command():
     client.send_request.return_value = {"status": "ok", "data": "submitted"}
     cli.cmd_run(args, client)
     client.send_request.assert_called_with({"cmd": "run", "job": "test_job"})
+
+def test_cli_retries_command():
+    args = argparse.Namespace(command="retries")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": [{"job": "j1", "attempt": 1, "next_retry_at": "now", "reason": "fail"}]}
+    cli.cmd_retries(args, client)
+    client.send_request.assert_called_with({"cmd": "retries"})
+
+def test_cli_kill_command():
+    args = argparse.Namespace(command="kill", job_id="test_job")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": "killed"}
+    cli.cmd_kill(args, client)
+    client.send_request.assert_called_with({"cmd": "kill", "job": "test_job"})
+
+def test_cli_cancel_retry_command():
+    args = argparse.Namespace(command="cancel-retry", job_id="test_job")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": "cancelled"}
+    cli.cmd_cancel_retry(args, client)
+    client.send_request.assert_called_with({"cmd": "cancel-retry", "job": "test_job"})
+
+def test_cli_disable_command():
+    args = argparse.Namespace(command="disable", job_id="test_job")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": "disabled"}
+    cli.cmd_disable(args, client)
+    client.send_request.assert_called_with({"cmd": "disable", "job": "test_job"})
+
+def test_cli_enable_command():
+    args = argparse.Namespace(command="enable", job_id="test_job")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": "enabled"}
+    cli.cmd_enable(args, client)
+    client.send_request.assert_called_with({"cmd": "enable", "job": "test_job"})
+
+def test_cli_zombies_command():
+    args = argparse.Namespace(command="zombies")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": [{"job": "z1", "pid": 123, "since": "now"}]}
+    cli.cmd_zombies(args, client)
+    client.send_request.assert_called_with({"cmd": "zombies"})
+
+def test_cli_reload_command():
+    args = argparse.Namespace(command="reload")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": "reloaded"}
+    cli.cmd_reload(args, client)
+    client.send_request.assert_called_with({"cmd": "reload"})
+
+def test_cli_logs_command():
+    args = argparse.Namespace(command="logs", job="j1", tail=10)
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": ["line1", "line2"]}
+    cli.cmd_logs(args, client)
+    client.send_request.assert_called_with({"cmd": "logs", "job": "j1", "tail": 10})
+
+def test_cli_validate_command():
+    args = argparse.Namespace(command="validate")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": "valid"}
+    cli.cmd_validate(args, client)
+    client.send_request.assert_called_with({"cmd": "validate"})
+
+def test_cli_next_command():
+    args = argparse.Namespace(command="next", job="j1")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": [{"job": "j1", "next_run": "later"}]}
+    cli.cmd_next(args, client)
+    client.send_request.assert_called_with({"cmd": "next", "job": "j1"})
+
+def test_cli_stop_command():
+    args = argparse.Namespace(command="stop")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": "stopping"}
+    cli.cmd_stop(args, client)
+    client.send_request.assert_called_with({"cmd": "stop"})
+
+def test_cli_error_response():
+    args = argparse.Namespace(command="status")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "error", "message": "Test error"}
+    with pytest.raises(SystemExit):
+        cli.cmd_status(args, client)
+
+def test_main_dispatch(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["wcrond-ctl", "status"])
+    monkeypatch.setattr("wcrond_ctl.cli.cmd_status", MagicMock())
+    cli.main()
+

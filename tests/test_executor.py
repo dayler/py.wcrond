@@ -99,7 +99,7 @@ def test_thread_pool_bounded(executor, state_store):
 def test_create_new_process_group(mock_popen, executor, state_store):
     mock_popen.return_value.communicate.return_value = ("out", "err")
     mock_popen.return_value.returncode = 0
-    job = CronJob(job_id="test", command="echo test", schedule="* * * * *")
+    job = CronJob(job_id="test", command="echo test", schedule="* * * * *", silent=False)
     executor.execute_job(job, "scheduled", 1)
     
     # In Windows subprocess.CREATE_NEW_PROCESS_GROUP is 512
@@ -107,4 +107,17 @@ def test_create_new_process_group(mock_popen, executor, state_store):
     call_args = mock_popen.call_args[1]
     import subprocess
     creationflags = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 512)
+    assert call_args["creationflags"] == creationflags
+
+@patch('subprocess.Popen')
+def test_create_no_window_silent(mock_popen, executor, state_store):
+    mock_popen.return_value.communicate.return_value = ("out", "err")
+    mock_popen.return_value.returncode = 0
+    job = CronJob(job_id="test", command="echo test", schedule="* * * * *", silent=True)
+    executor.execute_job(job, "scheduled", 1)
+    
+    call_args = mock_popen.call_args[1]
+    import subprocess
+    creationflags = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 512)
+    creationflags |= 0x08000000
     assert call_args["creationflags"] == creationflags

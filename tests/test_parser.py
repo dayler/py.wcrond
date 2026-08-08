@@ -66,3 +66,20 @@ overlap_policy = "invalid_policy"
     parser = WcrontabParser(config)
     with pytest.raises(ValueError, match="Invalid overlap_policy"):
         parser.parse_all()
+
+def test_parse_silent_property(wcrond_dir):
+    config = WcrondConfig.load()
+    (wcrond_dir / "wcrontab.toml").write_text('''
+[jobs.test_default]
+schedule = "@daily"
+command = "echo hello"
+
+[jobs.test_explicit_false]
+schedule = "@daily"
+command = "echo hello"
+silent = false
+    ''')
+    parser = WcrontabParser(config)
+    jobs = parser.parse_all()
+    assert jobs["test_default"].silent is True
+    assert jobs["test_explicit_false"].silent is False

@@ -1,18 +1,24 @@
 import pytest
 import time
+import os
 from wcrond.ipc import IPCServer
 from wcrond_ctl.client import IPCClient
 
 @pytest.fixture
-def ipc_server():
-    server = IPCServer(pipe_name="\\\\.\\pipe\\wcrond_test_pipe")
+def pipe_name():
+    return f"\\\\.\\pipe\\wcrond_test_pipe_{os.getpid()}_{time.time_ns()}"
+
+@pytest.fixture
+def ipc_server(pipe_name):
+    server = IPCServer(pipe_name=pipe_name)
     server.start()
     time.sleep(0.1) # give it time to start
-    yield server
+    yield server, pipe_name
     server.stop()
 
 def test_ipc_server_start_stop():
-    server = IPCServer(pipe_name="\\\\.\\pipe\\wcrond_test_pipe_start")
+    name = f"\\\\.\\pipe\\wcrond_test_pipe_start_{os.getpid()}_{time.time_ns()}"
+    server = IPCServer(pipe_name=name)
     server.start()
     assert server.running
     time.sleep(0.1)
@@ -20,13 +26,15 @@ def test_ipc_server_start_stop():
     assert not server.running
 
 def test_ipc_send_receive(ipc_server):
-    client = IPCClient(pipe_name="\\\\.\\pipe\\wcrond_test_pipe")
+    server, pipe = ipc_server
+    client = IPCClient(pipe_name=pipe)
     resp = client.send_request({"cmd": "status"})
     assert resp["status"] == "ok"
     assert "data" in resp
 
 def test_ipc_invalid_command(ipc_server):
-    client = IPCClient(pipe_name="\\\\.\\pipe\\wcrond_test_pipe")
+    server, pipe = ipc_server
+    client = IPCClient(pipe_name=pipe)
     resp = client.send_request({"cmd": "unknown"})
     assert resp["status"] == "error"
     assert "Unknown command" in resp["message"]
@@ -44,19 +52,22 @@ def test_ipc_daemon_not_running():
         client.send_request({"cmd": "status"})
 
 def test_ipc_handler_status(ipc_server):
-    client = IPCClient(pipe_name="\\\\.\\pipe\\wcrond_test_pipe")
+    server, pipe = ipc_server
+    client = IPCClient(pipe_name=pipe)
     resp = client.send_request({"cmd": "status"})
     assert resp["status"] == "ok"
     assert "uptime" in resp["data"]
 
 def test_ipc_handler_list(ipc_server):
-    client = IPCClient(pipe_name="\\\\.\\pipe\\wcrond_test_pipe")
+    server, pipe = ipc_server
+    client = IPCClient(pipe_name=pipe)
     resp = client.send_request({"cmd": "list"})
     assert resp["status"] == "ok"
     assert isinstance(resp["data"], list)
 
 def test_ipc_handler_history(ipc_server):
-    client = IPCClient(pipe_name="\\\\.\\pipe\\wcrond_test_pipe")
+    server, pipe = ipc_server
+    client = IPCClient(pipe_name=pipe)
     resp = client.send_request({"cmd": "history"})
     assert resp["status"] == "ok"
     assert isinstance(resp["data"], list)
