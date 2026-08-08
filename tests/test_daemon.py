@@ -135,9 +135,11 @@ def test_daemon_new_ipc_handlers(mock_load, mock_config):
     daemon.retry_manager.cancel_retry.assert_called_with("job1")
     
     # 5. disable / enable
+    daemon.retry_manager.reset_mock()
     res = daemon._handle_ipc_disable({"job": "job1"})
     assert res["status"] == "ok"
     assert daemon.scheduler.jobs["job1"].enabled is False
+    daemon.retry_manager.cancel_retry.assert_called_once_with("job1")
     
     res = daemon._handle_ipc_enable({"job": "job1"})
     assert res["status"] == "ok"

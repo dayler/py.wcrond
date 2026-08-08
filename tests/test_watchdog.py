@@ -4,6 +4,7 @@ from wcrond.watchdog import Watchdog
 from wcrond.config import WcrondConfig
 from wcrond.state import TaskExecution
 from datetime import datetime, timezone, timedelta
+import time
 
 @pytest.fixture
 def config():
@@ -70,3 +71,19 @@ def test_watchdog_grace_period(mock_process, watchdog, state_store):
     
     mock_p.terminate.assert_called_once()
     mock_p.kill.assert_called_once()
+
+def test_periodic_cleanup(config, state_store):
+    config.cleanup_interval_hours = 0  # Force immediate cleanup on first call
+    config.history_retention_days = 30
+    wd = Watchdog(state_store, config)
+    wd._maybe_cleanup()
+    state_store.cleanup_old_records.assert_called_once_with(30)
+
+
+def test_periodic_cleanup_skips_when_not_due(config, state_store):
+    config.cleanup_interval_hours = 24
+    config.history_retention_days = 30
+    wd = Watchdog(state_store, config)
+    wd._last_cleanup = time.time()  # Just cleaned up
+    wd._maybe_cleanup()
+    state_store.cleanup_old_records.assert_not_called()

@@ -125,6 +125,7 @@ def main():
         except AttributeError:
             pass
     parser = argparse.ArgumentParser(description="wcrond-ctl: Control CLI for wcrond")
+    parser.add_argument("--timeout", type=float, default=5.0, help="Timeout in seconds for IPC communication (default: 5)")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     p_status = subparsers.add_parser("status", help="Daemon status")
@@ -168,7 +169,7 @@ def main():
     p_stop = subparsers.add_parser("stop", help="Stop daemon")
 
     args = parser.parse_args()
-    client = IPCClient()
+    client = IPCClient(timeout=args.timeout)
 
     commands = {
         "status": cmd_status,

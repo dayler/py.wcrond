@@ -16,6 +16,7 @@ class Watchdog:
         self._stop_event = threading.Event()
         self._thread = None
         self.grace_period = self.config.grace_period if hasattr(self.config, 'grace_period') else 16
+        self._last_cleanup = 0.0
 
     def start(self):
         self._thread = threading.Thread(target=self._run, daemon=True, name="WatchdogThread")
@@ -30,6 +31,7 @@ class Watchdog:
         while not self._stop_event.is_set():
             try:
                 self.monitor_running_jobs()
+                self._maybe_cleanup()
             except Exception as e:
                 logger.error(f"Watchdog error: {e}")
             self._stop_event.wait(self.config.watchdog_check_interval if hasattr(self.config, 'watchdog_check_interval') else 30)
@@ -60,6 +62,17 @@ class Watchdog:
                     # Process died, but state not updated
                     self.state_store.record_end(job_state.execution_id, -1, "TIMEOUT", "", "Process died")
         return zombies
+
+    def _maybe_cleanup(self):
+        now = time.time()
+        interval_s = self.config.cleanup_interval_hours * 3600
+        if now - self._last_cleanup >= interval_s:
+            try:
+                self.state_store.cleanup_old_records(self.config.history_retention_days)
+                logger.info(f"Cleaned up records older than {self.config.history_retention_days} days")
+            except Exception as e:
+                logger.error(f"Cleanup error: {e}")
+            self._last_cleanup = now
 
     def kill_zombie(self, job_state):
         if not job_state.pid:

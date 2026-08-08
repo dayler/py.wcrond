@@ -14,6 +14,8 @@
 - **Monitoreo y Control**: Herramienta CLI (`wcrond-ctl`) para listar estado, historial y controlar jobs en tiempo real.
 - **Ligero**: Consumo mínimo de recursos (< 30 MB RAM en idle, < 1% CPU).
 - **Protección Zombie**: Detección y terminación automática de tareas colgadas.
+- **Hooks de Eventos**: Ejecuta acciones personalizadas (`on_success`, `on_failure`) al finalizar cada tarea.
+- **Purga Automática**: Limpieza periódica del historial de ejecuciones para mantener la base de datos ligera.
 
 ## ⚡ Quickstart
 
@@ -76,7 +78,7 @@ El binario principal controla el ciclo de vida del servicio en segundo plano.
 | `stop`  | `--config <ruta>` | Envía una señal IPC para apagar el demonio en ejecución.<br>Ej: `wcrond stop` |
 
 ### Control CLI (`wcrond-ctl`)
-Permite interactuar con el demonio en tiempo real.
+Permite interactuar con el demonio en tiempo real. Acepta el flag global `--timeout <segundos>` para ajustar el tiempo máximo de comunicación IPC (default: 5s).
 
 | Comando | Flags/Argumentos | Descripción y Ejemplo |
 |---------|------------------|------------------------|
@@ -87,7 +89,7 @@ Permite interactuar con el demonio en tiempo real.
 | `next` | `--job <id>` | Lista cuándo será la próxima ejecución esperada.<br>Ej: `wcrond-ctl next` |
 | `run` | `<job_id>` | Dispara la ejecución inmediata de un trabajo.<br>Ej: `wcrond-ctl run hello_world` |
 | `kill` | `<job_id>` | Fuerza la terminación (SIGKILL) de un trabajo activo.<br>Ej: `wcrond-ctl kill hello_world` |
-| `disable` | `<job_id>` | Pausa futuras ejecuciones programadas del trabajo.<br>Ej: `wcrond-ctl disable hello_world` |
+| `disable` | `<job_id>` | Pausa futuras ejecuciones y cancela reintentos pendientes.<br>Ej: `wcrond-ctl disable hello_world` |
 | `enable` | `<job_id>` | Reanuda las ejecuciones de un trabajo pausado.<br>Ej: `wcrond-ctl enable hello_world` |
 | `cancel-retry`| `<job_id>` | Elimina un job específico de la cola de reintentos.<br>Ej: `wcrond-ctl cancel-retry hello_world` |
 | `logs` | `--job <id>`, `--tail <N>` | Muestra la salida (stdout/stderr) capturada.<br>Ej: `wcrond-ctl logs --job hello_world --tail 20` |

@@ -24,7 +24,6 @@ class WcrondConfig:
     capture_job_output: bool = True
     output_tail_lines: int = 100
     cleanup_interval_hours: int = 24
-    ipc_client_timeout: int = 5
     watchdog_check_interval: int = 30
     watchdog_auto_kill_zombies: bool = True
 
@@ -81,7 +80,6 @@ class WcrondConfig:
 
         ipc = data.get("ipc", {})
         config.ipc_pipe_name = str(ipc.get("pipe_name", config.ipc_pipe_name))
-        config.ipc_client_timeout = int(ipc.get("client_timeout", config.ipc_client_timeout))
 
         watchdog = data.get("watchdog", {})
         config.watchdog_check_interval = int(watchdog.get("check_interval", config.watchdog_check_interval))

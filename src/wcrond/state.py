@@ -116,12 +116,18 @@ class StateStore:
             trigger=row["trigger"]
         )
 
-    def get_history(self, job_id: Optional[str] = None, limit: int = 10) -> List[TaskExecution]:
+    def get_history(self, job_id: Optional[str] = None, limit: int = 10, since: Optional[str] = None) -> List[TaskExecution]:
         query = "SELECT * FROM executions"
         params = []
+        conditions = []
         if job_id:
-            query += " WHERE job_id = ?"
+            conditions.append("job_id = ?")
             params.append(job_id)
+        if since:
+            conditions.append("start_time >= ?")
+            params.append(since)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY start_time DESC LIMIT ?"
         params.append(limit)
         

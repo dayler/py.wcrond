@@ -9,6 +9,8 @@ import concurrent.futures
 from wcrond.job import CronJob
 from wcrond.state import StateStore
 from wcrond.config import WcrondConfig
+from pathlib import Path
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,8 @@ class Executor:
             stdout_tail = self._tail(stdout, self.config.output_tail_lines)
             stderr_tail = self._tail(stderr, self.config.output_tail_lines)
             
+            self._write_job_logs(job, stdout, stderr)
+
             self.state_store.record_end(
                 execution_id=execution_id,
                 exit_code=exit_code,
@@ -109,6 +113,12 @@ class Executor:
                 stderr_tail=stderr_tail
             )
             
+            # Execute hooks
+            if exit_code == 0:
+                self._run_hook(job, job.on_success)
+            else:
+                self._run_hook(job, job.on_failure)
+
             if exit_code != 0 and self.retry_manager:
                 if attempt <= job.retry.max_retries:
                     self.retry_manager.schedule_retry(job, attempt + 1, f"exit code {exit_code}")
@@ -127,6 +137,8 @@ class Executor:
                 stdout_tail = self._tail(stdout, self.config.output_tail_lines)
                 stderr_tail = self._tail(stderr, self.config.output_tail_lines)
                 
+                self._write_job_logs(job, stdout, stderr)
+
                 if execution_id:
                     self.state_store.record_end(
                         execution_id=execution_id,
@@ -135,6 +147,7 @@ class Executor:
                         stdout_tail=stdout_tail,
                         stderr_tail=stderr_tail
                     )
+                    self._run_hook(job, job.on_failure)
                 
                 if self.retry_manager and attempt <= job.retry.max_retries:
                     self.retry_manager.schedule_retry(job, attempt + 1, "timeout")
@@ -172,3 +185,37 @@ class Executor:
             return ""
         all_lines = text.splitlines()
         return "\n".join(all_lines[-lines:])
+
+    def _write_job_logs(self, job: CronJob, stdout: str, stderr: str):
+        """Write full stdout/stderr to individual log files per job execution."""
+        if not self.config.capture_job_output:
+            return
+        try:
+            log_dir = self.config.get_absolute_path(self.config.log_dir) / "jobs" / job.job_id
+            log_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
+            if stdout:
+                (log_dir / f"{timestamp}.stdout.log").write_text(stdout, encoding="utf-8")
+            if stderr:
+                (log_dir / f"{timestamp}.stderr.log").write_text(stderr, encoding="utf-8")
+        except Exception as e:
+            logger.error(f"Failed to write job logs for {job.job_id}: {e}")
+
+    def _run_hook(self, job: CronJob, hook_command: str):
+        """Execute a hook command (on_success/on_failure) as a fire-and-forget subprocess."""
+        if not hook_command:
+            return
+        try:
+            shell = job.shell or self.config.default_shell
+            cmd_args = self._build_cmd_args(shell, hook_command)
+            creationflags = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 512)
+            creationflags |= 0x08000000  # CREATE_NO_WINDOW, hooks are always silent
+            subprocess.Popen(
+                cmd_args,
+                creationflags=creationflags,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            logger.info(f"Hook executed for job {job.job_id}: {hook_command}")
+        except Exception as e:
+            logger.error(f"Failed to run hook for job {job.job_id}: {e}")

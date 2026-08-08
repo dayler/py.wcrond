@@ -152,7 +152,7 @@ class WcrondDaemon:
         return {"status": "ok", "data": jobs}
         
     def _handle_ipc_history(self, req):
-        hist = self.state_store.get_history(req.get("job"), req.get("limit", 10))
+        hist = self.state_store.get_history(req.get("job"), req.get("limit", 10), since=req.get("since"))
         data = []
         for h in hist:
             data.append({
@@ -231,6 +231,7 @@ class WcrondDaemon:
         if not job_id or job_id not in self.scheduler.jobs:
             return {"status": "error", "message": "job not found"}
         self.scheduler.jobs[job_id].enabled = False
+        self.retry_manager.cancel_retry(job_id)
         return {"status": "ok", "data": "disabled"}
 
     def _handle_ipc_enable(self, req):

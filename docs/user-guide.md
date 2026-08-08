@@ -86,6 +86,8 @@ auto_kill_zombies = true
 - `history_retention_days`: (int) Días que se conservan los registros de ejecuciones antiguas.
 - `cleanup_interval_hours`: (int) Cada cuántas horas corre la tarea de purga automática.
 
+> **Nota:** La purga automática elimina registros de ejecución más antiguos que `history_retention_days` días. Se ejecuta de forma periódica cada `cleanup_interval_hours` horas mientras el daemon esté corriendo.
+
 **Sección `[ipc]`:**
 - `pipe_name`: (string) Nombre del Named Pipe usado para IPC (`\\\\.\\pipe\\wcrond`).
 - `client_timeout`: (int) Segundos que el cliente CLI espera respuesta antes de fallar.
@@ -120,6 +122,12 @@ max_retries = 3
 initial_delay_s = 60
 backoff_multiplier = 2.0
 max_delay_s = 600
+
+[jobs.respaldo_con_hooks]
+schedule = "0 2 * * *"
+command = "C:\\scripts\\backup.ps1"
+on_success = "echo Backup OK >> C:\\logs\\hooks.log"
+on_failure = "powershell Send-MailMessage -To admin@empresa.com -Subject 'Backup FALLÓ'"
 ```
 
 ### Propiedades de Job en `wcrontab.toml`
@@ -133,6 +141,8 @@ max_delay_s = 600
 - `overlap_policy`: (string, opcional) Comportamiento ante ejecuciones encimadas: `allow` (permitir), `skip` (omitir), o `kill_previous` (matar ejecución anterior).
 - `enabled`: (bool) Habilita o deshabilita la tarea de forma individual.
 - `silent`: (bool, opcional) Suprime la ventana de consola en Windows (`CREATE_NO_WINDOW`). Por defecto es `true`. Si tu tarea lanza una UI gráfica, colócalo en `false`.
+- `on_success`: (string, opcional) Comando a ejecutar automáticamente cuando el job termina con éxito (exit code 0). Se ejecuta como subproceso independiente.
+- `on_failure`: (string, opcional) Comando a ejecutar automáticamente cuando el job falla (exit code ≠ 0) o expira por timeout.
 
 **Subsección `[...env]`:**
 - Define pares clave-valor que se inyectan como variables de entorno directamente en el subproceso de la tarea.
@@ -187,6 +197,9 @@ Estos comandos controlan el ciclo de vida del servicio en background.
 
 Herramienta diseñada para supervisar y operar sobre los trabajos programados en un demonio en ejecución.
 
+**Flag global:**
+- `--timeout <segundos>`: (float, opcional) Tiempo máximo de espera para la comunicación IPC con el daemon. Default: `5` segundos. Ejemplo: `wcrond-ctl --timeout 15 status`
+
 *   `status`
     *   **Descripción:** Imprime el estado del demonio, su tiempo de actividad (uptime), total de jobs registrados, hilos de ejecución activos y trabajos encolados por reintento.
     *   **Ejemplo:** `wcrond-ctl status`
@@ -221,6 +234,7 @@ Herramienta diseñada para supervisar y operar sobre los trabajos programados en
 
 *   `disable <job_id>` / `enable <job_id>`
     *   **Descripción:** Pausa (disable) o reanuda (enable) dinámicamente un trabajo, afectando solo al estado en memoria del demonio.
+    *   **Nota:** Al deshabilitar un trabajo, los reintentos pendientes de dicho trabajo también se cancelan automáticamente.
     *   **Ejemplo:** `wcrond-ctl disable notificaciones_email`
 
 *   `logs [--job <id>] [--tail <N>]`

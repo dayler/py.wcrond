@@ -164,3 +164,46 @@ def test_status_values(store):
     
     history = store.get_history()
     assert history[0].status == "TIMEOUT"
+
+def test_get_history_with_since_filter(store):
+    # Insert an old record (10 days ago)
+    old_time = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+    store.conn.execute(
+        "INSERT INTO executions (execution_id, job_id, job_name, start_time, status, attempt, trigger) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("old_exec", "job1", "Job 1", old_time, "SUCCESS", 1, "manual")
+    )
+    # Insert a recent record (1 day ago)
+    recent_time = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    store.conn.execute(
+        "INSERT INTO executions (execution_id, job_id, job_name, start_time, status, attempt, trigger) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("recent_exec", "job1", "Job 1", recent_time, "SUCCESS", 1, "manual")
+    )
+    
+    # Filter since 5 days ago
+    since = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+    history = store.get_history(since=since)
+    assert len(history) == 1
+    assert history[0].execution_id == "recent_exec"
+
+
+def test_get_history_with_job_and_since(store):
+    old_time = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+    recent_time = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    
+    store.conn.execute(
+        "INSERT INTO executions (execution_id, job_id, job_name, start_time, status, attempt, trigger) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("exec1", "job1", "Job 1", old_time, "SUCCESS", 1, "manual")
+    )
+    store.conn.execute(
+        "INSERT INTO executions (execution_id, job_id, job_name, start_time, status, attempt, trigger) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("exec2", "job1", "Job 1", recent_time, "SUCCESS", 1, "manual")
+    )
+    store.conn.execute(
+        "INSERT INTO executions (execution_id, job_id, job_name, start_time, status, attempt, trigger) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("exec3", "job2", "Job 2", recent_time, "SUCCESS", 1, "manual")
+    )
+    
+    since = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+    history = store.get_history(job_id="job1", since=since)
+    assert len(history) == 1
+    assert history[0].execution_id == "exec2"

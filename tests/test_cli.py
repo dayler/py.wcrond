@@ -151,3 +151,22 @@ def test_main_dispatch(monkeypatch):
     monkeypatch.setattr("wcrond_ctl.cli.cmd_status", MagicMock())
     cli.main()
 
+
+def test_global_timeout_flag(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["wcrond-ctl", "--timeout", "10", "status"])
+    mock_cmd_status = MagicMock()
+    monkeypatch.setattr("wcrond_ctl.cli.cmd_status", mock_cmd_status)
+    cli.main()
+    # Verify cmd_status was called with args that have timeout=10.0
+    call_args = mock_cmd_status.call_args[0]
+    assert call_args[0].timeout == 10.0
+
+
+def test_default_timeout_flag(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["wcrond-ctl", "status"])
+    mock_cmd_status = MagicMock()
+    monkeypatch.setattr("wcrond_ctl.cli.cmd_status", mock_cmd_status)
+    cli.main()
+    call_args = mock_cmd_status.call_args[0]
+    assert call_args[0].timeout == 5.0
+

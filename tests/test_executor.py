@@ -121,3 +121,85 @@ def test_create_no_window_silent(mock_popen, executor, state_store):
     creationflags = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 512)
     creationflags |= 0x08000000
     assert call_args["creationflags"] == creationflags
+
+@patch('subprocess.Popen')
+def test_on_success_hook_called(mock_popen, executor, state_store):
+    # Main process mock
+    main_process = MagicMock()
+    main_process.communicate.return_value = ("out", "err")
+    main_process.returncode = 0
+    # Hook process mock
+    hook_process = MagicMock()
+    mock_popen.side_effect = [main_process, hook_process]
+    
+    job = CronJob(job_id="test", command="echo test", schedule="* * * * *",
+                  on_success="echo success_hook", on_failure=None)
+    executor.execute_job(job, "scheduled", 1)
+    
+    # Popen should be called twice: once for the job, once for the hook
+    assert mock_popen.call_count == 2
+    hook_call_args = mock_popen.call_args_list[1]
+    assert "success_hook" in str(hook_call_args)
+
+
+@patch('subprocess.Popen')
+def test_on_failure_hook_called(mock_popen, executor, state_store):
+    main_process = MagicMock()
+    main_process.communicate.return_value = ("out", "err")
+    main_process.returncode = 1
+    hook_process = MagicMock()
+    mock_popen.side_effect = [main_process, hook_process]
+    
+    job = CronJob(job_id="test", command="echo test", schedule="* * * * *",
+                  on_success=None, on_failure="echo failure_hook")
+    executor.execute_job(job, "scheduled", 1)
+    
+    assert mock_popen.call_count == 2
+    hook_call_args = mock_popen.call_args_list[1]
+    assert "failure_hook" in str(hook_call_args)
+
+
+@patch('subprocess.Popen')
+def test_no_hook_when_not_configured(mock_popen, executor, state_store):
+    main_process = MagicMock()
+    main_process.communicate.return_value = ("out", "err")
+    main_process.returncode = 0
+    mock_popen.return_value = main_process
+    
+    job = CronJob(job_id="test", command="echo test", schedule="* * * * *",
+                  on_success=None, on_failure=None)
+    executor.execute_job(job, "scheduled", 1)
+    
+    # Popen called only once (for the job, no hook)
+    assert mock_popen.call_count == 1
+
+def test_capture_job_output_writes_files(state_store, tmp_path):
+    config = WcrondConfig(base_dir=tmp_path)
+    config.capture_job_output = True
+    config.log_dir = "logs"
+    ex = Executor(config, state_store)
+    
+    job = CronJob(job_id="log_test", command="echo captured_output", shell="cmd", schedule="* * * * *")
+    ex.execute_job(job, "scheduled", 1)
+    ex.shutdown()
+    
+    log_dir = tmp_path / "logs" / "jobs" / "log_test"
+    assert log_dir.exists()
+    stdout_files = list(log_dir.glob("*.stdout.log"))
+    assert len(stdout_files) == 1
+    content = stdout_files[0].read_text(encoding="utf-8")
+    assert "captured_output" in content
+
+
+def test_no_capture_when_disabled(state_store, tmp_path):
+    config = WcrondConfig(base_dir=tmp_path)
+    config.capture_job_output = False
+    config.log_dir = "logs"
+    ex = Executor(config, state_store)
+    
+    job = CronJob(job_id="no_log", command="echo test", shell="cmd", schedule="* * * * *")
+    ex.execute_job(job, "scheduled", 1)
+    ex.shutdown()
+    
+    log_dir = tmp_path / "logs" / "jobs" / "no_log"
+    assert not log_dir.exists()
