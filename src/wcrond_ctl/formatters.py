@@ -1,5 +1,15 @@
 import datetime
 
+def format_datetime(iso_str: str) -> str:
+    if not iso_str or iso_str == "Never":
+        return iso_str
+    try:
+        dt = datetime.datetime.fromisoformat(iso_str)
+        local_dt = dt.astimezone()
+        return local_dt.strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return iso_str
+
 def format_duration(seconds):
     if seconds is None:
         return "-"

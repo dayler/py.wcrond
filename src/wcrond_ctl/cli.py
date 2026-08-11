@@ -1,7 +1,7 @@
 import argparse
 import sys
 from .client import IPCClient
-from .formatters import print_table, colorize, format_duration
+from .formatters import print_table, colorize, format_duration, format_datetime
 import json
 
 def handle_response(response, callback):
@@ -24,7 +24,7 @@ def cmd_list(args, client):
     resp = client.send_request({"cmd": "list"})
     def format_list(data):
         headers = ["Job", "Schedule", "Enabled", "Last Run"]
-        rows = [[job.get("id", ""), job.get("schedule", ""), str(job.get("enabled", True)), job.get("last_run", "Never")] for job in data]
+        rows = [[job.get("id", ""), job.get("schedule", ""), str(job.get("enabled", True)), format_datetime(job.get("last_run", "Never"))] for job in data]
         print_table(headers, rows)
     handle_response(resp, format_list)
 
@@ -41,8 +41,8 @@ def cmd_history(args, client):
             status = colorize(d.get('status', ''), d.get('status', ''))
             rows.append([
                 d.get('job', ''),
-                d.get('start_time', ''),
-                d.get('end_time', ''),
+                format_datetime(d.get('start_time', '')),
+                format_datetime(d.get('end_time', '')),
                 format_duration(d.get('duration_s', 0)),
                 status,
                 d.get('attempt', ''),
@@ -55,7 +55,7 @@ def cmd_retries(args, client):
     resp = client.send_request({"cmd": "retries"})
     def format_retries(data):
         headers = ["Job", "Attempt", "Next Retry At", "Reason"]
-        rows = [[d.get('job', ''), d.get('attempt', ''), d.get('next_retry_at', ''), d.get('reason', '')] for d in data]
+        rows = [[d.get('job', ''), d.get('attempt', ''), format_datetime(d.get('next_retry_at', '')), d.get('reason', '')] for d in data]
         print_table(headers, rows)
     handle_response(resp, format_retries)
 
@@ -85,7 +85,7 @@ def cmd_zombies(args, client):
         if not data:
             print("No zombies detected.")
         else:
-            print_table(["Job", "PID", "Since"], [[d.get('job',''), d.get('pid',''), d.get('since','')] for d in data])
+            print_table(["Job", "PID", "Since"], [[d.get('job',''), d.get('pid',''), format_datetime(d.get('since',''))] for d in data])
     handle_response(resp, cb)
 
 def cmd_reload(args, client):
@@ -111,7 +111,7 @@ def cmd_next(args, client):
     if args.job: req["job"] = args.job
     resp = client.send_request(req)
     def cb(data):
-        print_table(["Job", "Next Run At"], [[d.get("job",""), d.get("next_run","")] for d in data])
+        print_table(["Job", "Next Run At"], [[d.get("job",""), format_datetime(d.get("next_run",""))] for d in data])
     handle_response(resp, cb)
 
 def cmd_stop(args, client):

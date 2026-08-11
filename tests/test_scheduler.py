@@ -53,9 +53,28 @@ def test_tick_no_action_same_minute(scheduler, executor):
 def test_evaluate_matching_job(scheduler, executor):
     job = CronJob(job_id="test", schedule="30 10 * * *", command="echo")
     scheduler.add_job(job)
-    dt = datetime(2026, 8, 7, 10, 30, 0, tzinfo=timezone.utc)
+    # Use a specific local timezone to ensure croniter evaluates based on the datetime's hour/minute
+    tz_local = timezone(timedelta(hours=-4))
+    dt = datetime(2026, 8, 7, 10, 30, 0, tzinfo=tz_local)
     scheduler.evaluate_jobs(dt)
     executor.submit_job.assert_called_once_with(job, trigger="scheduled")
+
+def test_evaluate_local_timezone(scheduler, executor):
+    job = CronJob(job_id="test", schedule="0 18 * * *", command="echo")
+    scheduler.add_job(job)
+    # If the user sets local time to 18:00 (e.g. UTC-4), it should match 18:00
+    tz_local = timezone(timedelta(hours=-4))
+    dt_local = datetime(2026, 8, 7, 18, 0, 0, tzinfo=tz_local)
+    scheduler.evaluate_jobs(dt_local)
+    executor.submit_job.assert_called_once_with(job, trigger="scheduled")
+    
+    # If the time is 18:00 UTC (which is 14:00 local), it should NOT match for local eval
+    executor.submit_job.reset_mock()
+    dt_utc = datetime(2026, 8, 7, 18, 0, 0, tzinfo=timezone.utc)
+    # The tick generates a local time of 14:00 when it's 18:00 UTC
+    dt_local_2 = dt_utc.astimezone(tz_local) # 14:00 local
+    scheduler.evaluate_jobs(dt_local_2)
+    executor.submit_job.assert_not_called()
 
 def test_evaluate_non_matching_job(scheduler, executor):
     job = CronJob(job_id="test", schedule="31 10 * * *", command="echo")

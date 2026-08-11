@@ -32,7 +32,7 @@ class Scheduler:
     def tick(self, now: Optional[datetime] = None):
         """Called every tick_interval_s."""
         if now is None:
-            now = datetime.now(timezone.utc)
+            now = datetime.now().astimezone()
             
         current_minute = now.replace(second=0, microsecond=0)
         current_minute_ts = int(current_minute.timestamp())
@@ -95,6 +95,6 @@ class Scheduler:
         if job.schedule == "@reboot":
             return []
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now().astimezone()
         cron = croniter.croniter(job.schedule, now)
         return [cron.get_next(datetime) for _ in range(n)]
