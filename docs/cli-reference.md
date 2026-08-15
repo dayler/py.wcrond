@@ -2,6 +2,14 @@
 
 La herramienta `wcrond-ctl` permite a los usuarios interactuar con el daemon de `wcrond` utilizando Named Pipes (IPC) en Windows.
 
+## Comandos del Daemon (wcrond)
+
+### `wcrond install [--method {registry,startup}]`
+Registra wcrond para auto-inicio al hacer login en Windows.
+
+### `wcrond uninstall`
+Remueve wcrond de todos los mecanismos de auto-inicio configurados.
+
 ## Comandos Generales
 
 ### `wcrond-ctl --help`

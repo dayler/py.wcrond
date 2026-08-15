@@ -6,7 +6,7 @@ import argparse
 def test_formatter_duration():
     assert formatters.format_duration(30) == "30.0s"
     assert formatters.format_duration(65) == "1m 5s"
-    assert formatters.format_duration(3605) == "1h 0m"
+    assert formatters.format_duration(3605) == "1h 0m 5s"
     assert formatters.format_duration(None) == "-"
 
 def test_formatter_colors():

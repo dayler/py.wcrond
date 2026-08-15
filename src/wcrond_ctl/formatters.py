@@ -22,7 +22,7 @@ def format_duration(seconds):
         return f"{m}m {s}s"
     h = m // 60
     m = m % 60
-    return f"{h}h {m}m"
+    return f"{h}h {m}m {s}s"
 
 # ANSI colors
 class Colors:

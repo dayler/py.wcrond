@@ -117,6 +117,14 @@ def main():
     init_p = subparsers.add_parser("init")
     init_p.add_argument("--config")
 
+    install_p = subparsers.add_parser("install", help="Register wcrond for auto-start at login")
+    install_p.add_argument("--method", choices=["registry", "startup"], default="registry",
+                           help="Auto-start method (default: registry)")
+    install_p.add_argument("--config")
+
+    uninstall_p = subparsers.add_parser("uninstall", help="Remove wcrond auto-start registration")
+    uninstall_p.add_argument("--config")
+
     args = parser.parse_args()
 
     config = WcrondConfig.load(args.config)
@@ -148,11 +156,26 @@ def main():
         res = send_ipc_command(config, "status", quiet=True)
         if res and res.get("status") == "ok":
             uptime = res.get("data", {}).get("uptime", 0)
-            print(f"wcrond is running (Uptime: {uptime}s)")
+            from wcrond_ctl.formatters import format_duration
+            formatted_uptime = format_duration(uptime)
+            print(f"wcrond is running (Uptime: {formatted_uptime})")
             sys.exit(0)
         else:
             print("wcrond is not running.")
             sys.exit(1)
+    elif args.command == "install":
+        from wcrond.autostart import install_autostart
+        if install_autostart(args.method):
+            print(f"[OK] wcrond registered for auto-start via {args.method}")
+        else:
+            print("[ERROR] Failed to register auto-start")
+            sys.exit(1)
+    elif args.command == "uninstall":
+        from wcrond.autostart import uninstall_autostart
+        if uninstall_autostart():
+            print("[OK] wcrond removed from auto-start")
+        else:
+            print("[INFO] No auto-start registration found")
 
 if __name__ == '__main__':
     main()

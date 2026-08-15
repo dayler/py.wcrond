@@ -158,7 +158,7 @@ def test_daemon_new_ipc_handlers(mock_load, mock_config):
     # 8. validate
     res = daemon._handle_ipc_validate({})
     assert res["status"] == "ok"
-    assert res["data"] == "valid"
+    assert res["data"]["status"] == "valid"
     
     # 9. next
     daemon.scheduler.get_next_runs.return_value = [MagicMock(isoformat=lambda: "2024-01-01T00:00:00")]
@@ -245,15 +245,18 @@ def test_send_ipc_command_failure(mock_win32file, mock_config):
 @patch("wcrond.__main__.send_ipc_command")
 @patch("wcrond.__main__.WcrondConfig.load")
 @patch("sys.argv", ["wcrond", "status"])
-def test_main_status_running(mock_load, mock_send_ipc, mock_config):
+def test_main_status_running(mock_load, mock_send_ipc, mock_config, capsys):
     mock_load.return_value = mock_config
-    mock_send_ipc.return_value = {"status": "ok", "data": {"uptime": 42.5}}
+    mock_send_ipc.return_value = {"status": "ok", "data": {"uptime": 3642.5}}
     
     with pytest.raises(SystemExit) as exc:
         main()
     
     assert exc.value.code == 0
     mock_send_ipc.assert_called_once()
+    
+    captured = capsys.readouterr()
+    assert "Uptime: 1h 0m 42s" in captured.out
 
 @patch("wcrond.__main__.send_ipc_command")
 @patch("wcrond.__main__.WcrondConfig.load")
@@ -267,3 +270,203 @@ def test_main_status_not_running(mock_load, mock_send_ipc, mock_config):
     
     assert exc.value.code == 1
     mock_send_ipc.assert_called_once()
+
+
+# ---- PID Hardening Tests ----
+
+class TestIsWcrondProcess:
+    """Unit tests for _is_wcrond_process helper method."""
+
+    @patch("wcrond.daemon.psutil")
+    def test_pid_not_exists(self, mock_psutil):
+        mock_psutil.pid_exists.return_value = False
+        daemon = WcrondDaemon()
+        assert daemon._is_wcrond_process(99999) is False
+
+    @patch("wcrond.daemon.psutil")
+    def test_pid_is_wcrond(self, mock_psutil):
+        mock_psutil.pid_exists.return_value = True
+        mock_proc = MagicMock()
+        mock_proc.cmdline.return_value = ["python", "-m", "wcrond", "start", "--foreground"]
+        mock_psutil.Process.return_value = mock_proc
+        daemon = WcrondDaemon()
+        assert daemon._is_wcrond_process(1234) is True
+
+    @patch("wcrond.daemon.psutil")
+    def test_pid_is_not_wcrond(self, mock_psutil):
+        mock_psutil.pid_exists.return_value = True
+        mock_proc = MagicMock()
+        mock_proc.cmdline.return_value = ["C:\\Windows\\System32\\pwsh.exe"]
+        mock_psutil.Process.return_value = mock_proc
+        daemon = WcrondDaemon()
+        assert daemon._is_wcrond_process(3500) is False
+
+    @patch("wcrond.daemon.psutil")
+    def test_pid_access_denied(self, mock_psutil):
+        import psutil as real_psutil
+        mock_psutil.pid_exists.return_value = True
+        mock_psutil.Process.side_effect = real_psutil.AccessDenied(7777)
+        mock_psutil.NoSuchProcess = real_psutil.NoSuchProcess
+        mock_psutil.AccessDenied = real_psutil.AccessDenied
+        mock_psutil.ZombieProcess = real_psutil.ZombieProcess
+        daemon = WcrondDaemon()
+        assert daemon._is_wcrond_process(7777) is False
+
+    @patch("wcrond.daemon.psutil")
+    def test_pid_no_such_process(self, mock_psutil):
+        import psutil as real_psutil
+        mock_psutil.pid_exists.return_value = True
+        mock_psutil.Process.side_effect = real_psutil.NoSuchProcess(8888)
+        mock_psutil.NoSuchProcess = real_psutil.NoSuchProcess
+        mock_psutil.AccessDenied = real_psutil.AccessDenied
+        mock_psutil.ZombieProcess = real_psutil.ZombieProcess
+        daemon = WcrondDaemon()
+        assert daemon._is_wcrond_process(8888) is False
+
+    @patch("wcrond.daemon.psutil")
+    def test_pid_wcrond_exe(self, mock_psutil):
+        """Detects wcrond.exe as a wcrond process."""
+        mock_psutil.pid_exists.return_value = True
+        mock_proc = MagicMock()
+        mock_proc.cmdline.return_value = ["C:\\Python\\Scripts\\wcrond.exe", "start"]
+        mock_psutil.Process.return_value = mock_proc
+        daemon = WcrondDaemon()
+        assert daemon._is_wcrond_process(5555) is True
+
+
+class TestPIDHardening:
+    """Integration tests for PID validation during daemon start."""
+
+    @patch("wcrond.daemon.WcrondConfig.load")
+    @patch("wcrond.daemon.psutil")
+    def test_stale_pid_different_process_allows_start(self, mock_psutil, mock_load, mock_config):
+        """After power failure, PID reused by pwsh — should NOT block start."""
+        mock_load.return_value = mock_config
+
+        pid_file = mock_config.get_absolute_path(mock_config.pid_file)
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        pid_file.write_text("3500")
+
+        mock_psutil.pid_exists.return_value = True
+        mock_proc = MagicMock()
+        mock_proc.cmdline.return_value = ["C:\\Windows\\System32\\pwsh.exe"]
+        mock_proc.name.return_value = "pwsh"
+        mock_psutil.Process.return_value = mock_proc
+
+        daemon = WcrondDaemon()
+        daemon.config = mock_config
+
+        def mock_run_loop():
+            assert pid_file.read_text() == str(os.getpid())
+            daemon.running = False
+
+        with patch.object(daemon, '_run_loop', side_effect=mock_run_loop):
+            daemon.start()
+
+    @patch("wcrond.daemon.WcrondConfig.load")
+    @patch("wcrond.daemon.psutil")
+    def test_pid_actually_wcrond_blocks_start(self, mock_psutil, mock_load, mock_config):
+        """If PID file points to a real wcrond process, block start."""
+        mock_load.return_value = mock_config
+
+        pid_file = mock_config.get_absolute_path(mock_config.pid_file)
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        pid_file.write_text("5000")
+
+        mock_psutil.pid_exists.return_value = True
+        mock_proc = MagicMock()
+        mock_proc.cmdline.return_value = ["python", "-m", "wcrond", "start", "--foreground"]
+        mock_psutil.Process.return_value = mock_proc
+
+        daemon = WcrondDaemon()
+        daemon.config = mock_config
+
+        with pytest.raises(SystemExit):
+            daemon.start()
+
+    @patch("wcrond.daemon.WcrondConfig.load")
+    def test_corrupt_pid_file_allows_start(self, mock_load, mock_config):
+        """Corrupt PID file (non-numeric) should be treated as stale."""
+        mock_load.return_value = mock_config
+
+        pid_file = mock_config.get_absolute_path(mock_config.pid_file)
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        pid_file.write_text("not_a_number")
+
+        daemon = WcrondDaemon()
+        daemon.config = mock_config
+
+        def mock_run_loop():
+            assert pid_file.read_text() == str(os.getpid())
+            daemon.running = False
+
+        with patch.object(daemon, '_run_loop', side_effect=mock_run_loop):
+            daemon.start()
+
+    @patch("wcrond.daemon.WcrondConfig.load")
+    def test_empty_pid_file_allows_start(self, mock_load, mock_config):
+        """Empty PID file should be treated as stale."""
+        mock_load.return_value = mock_config
+
+        pid_file = mock_config.get_absolute_path(mock_config.pid_file)
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        pid_file.write_text("")
+
+        daemon = WcrondDaemon()
+        daemon.config = mock_config
+
+        def mock_run_loop():
+            assert pid_file.read_text() == str(os.getpid())
+            daemon.running = False
+
+        with patch.object(daemon, '_run_loop', side_effect=mock_run_loop):
+            daemon.start()
+
+    @patch("wcrond.daemon.WcrondConfig.load")
+    @patch("wcrond.daemon.psutil")
+    def test_pid_access_denied_allows_start(self, mock_psutil, mock_load, mock_config):
+        """If we can't read the process info (AccessDenied), treat as stale."""
+        import psutil as real_psutil
+        mock_load.return_value = mock_config
+
+        pid_file = mock_config.get_absolute_path(mock_config.pid_file)
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        pid_file.write_text("7777")
+
+        mock_psutil.pid_exists.return_value = True
+        mock_psutil.Process.side_effect = real_psutil.AccessDenied(7777)
+        mock_psutil.NoSuchProcess = real_psutil.NoSuchProcess
+        mock_psutil.AccessDenied = real_psutil.AccessDenied
+        mock_psutil.ZombieProcess = real_psutil.ZombieProcess
+
+        daemon = WcrondDaemon()
+        daemon.config = mock_config
+
+        def mock_run_loop():
+            assert pid_file.read_text() == str(os.getpid())
+            daemon.running = False
+
+        with patch.object(daemon, '_run_loop', side_effect=mock_run_loop):
+            daemon.start()
+
+
+# ---- CLI install/uninstall Tests ----
+
+@patch("wcrond.__main__.WcrondConfig.load")
+@patch("sys.argv", ["wcrond", "install", "--method", "registry"])
+def test_main_install_registry(mock_load, mock_config):
+    mock_load.return_value = mock_config
+
+    with patch("wcrond.autostart.install_autostart", return_value=True) as mock_install:
+        main()
+        mock_install.assert_called_once_with("registry")
+
+
+@patch("wcrond.__main__.WcrondConfig.load")
+@patch("sys.argv", ["wcrond", "uninstall"])
+def test_main_uninstall(mock_load, mock_config):
+    mock_load.return_value = mock_config
+
+    with patch("wcrond.autostart.uninstall_autostart", return_value=True) as mock_uninstall:
+        main()
+        mock_uninstall.assert_called_once()

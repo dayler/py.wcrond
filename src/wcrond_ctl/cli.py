@@ -104,7 +104,12 @@ def cmd_logs(args, client):
 
 def cmd_validate(args, client):
     resp = client.send_request({"cmd": "validate"})
-    handle_response(resp, lambda d: print("Configuration is valid"))
+    def cb(d):
+        print("Configuration is valid")
+        if isinstance(d, dict) and d.get("warnings"):
+            for w in d["warnings"]:
+                print(formatters.colorize(w, "TIMEOUT"))
+    handle_response(resp, cb)
 
 def cmd_next(args, client):
     req = {"cmd": "next"}

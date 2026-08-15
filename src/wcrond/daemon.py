@@ -39,11 +39,13 @@ class WcrondDaemon:
         if pid_file.exists():
             try:
                 old_pid = int(pid_file.read_text().strip())
-                if psutil.pid_exists(old_pid):
+                if self._is_wcrond_process(old_pid):
                     logger.error(f"wcrond is already running with PID {old_pid}")
                     sys.exit(1)
-            except Exception:
-                pass
+                else:
+                    logger.warning(f"Removing stale PID file (PID {old_pid} is not wcrond)")
+            except (ValueError, OSError):
+                logger.warning("Corrupt PID file found. Removing.")
         pid_file.parent.mkdir(parents=True, exist_ok=True)
         pid_file.write_text(str(os.getpid()))
         
@@ -117,6 +119,22 @@ class WcrondDaemon:
             logger.info(f"Loaded {len(jobs)} jobs")
         except Exception as e:
             logger.error(f"Failed to load jobs: {e}")
+
+    def _is_wcrond_process(self, pid: int) -> bool:
+        """Check if the given PID belongs to a running wcrond process.
+        
+        Returns True only if the process exists AND its command line
+        contains 'wcrond'. This prevents false positives after reboot
+        when a different process reuses the PID.
+        """
+        if not psutil.pid_exists(pid):
+            return False
+        try:
+            proc = psutil.Process(pid)
+            cmdline = " ".join(proc.cmdline()).lower()
+            return "wcrond" in cmdline
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return False
 
     def stop(self):
         logger.info("Stopping wcrond daemon...")
@@ -258,8 +276,11 @@ class WcrondDaemon:
         return {"status": "ok", "data": logs[-tail:] if logs else []}
 
     def _handle_ipc_validate(self, req):
-        # Already validated during load, just report ok
-        return {"status": "ok", "data": "valid"}
+        # Already validated during load, check config limits
+        warnings = []
+        if self.config.tick_interval_s > 60:
+            warnings.append(f"WARNING: tick_interval ({self.config.tick_interval_s}s) is greater than 60 seconds. Tasks scheduled during system suspension or hibernation will be lost.")
+        return {"status": "ok", "data": {"status": "valid", "warnings": warnings}}
 
     def _handle_ipc_next(self, req):
         job_id = req.get("job")

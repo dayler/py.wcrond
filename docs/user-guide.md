@@ -18,6 +18,29 @@ Esto instalará los comandos `wcrond` (para el daemon) y `wcrond-ctl` (el CLI de
 wcrond init
 ```
 
+### Auto-inicio con Windows
+
+`pip install .` instala el paquete y crea la configuración, pero **no registra wcrond para iniciar automáticamente** al hacer login en Windows. Sin este paso, si tu máquina se reinicia (por un corte de energía, actualización de Windows, etc.), wcrond no se recuperará automáticamente.
+
+Para una instalación completa que incluya auto-inicio:
+
+```powershell
+.\scripts\install.ps1                         # Método registry (default)
+.\scripts\install.ps1 -AutoStartMethod startup # Método startup folder
+```
+
+O manualmente:
+
+```powershell
+wcrond install --method registry
+```
+
+Para desregistrar el auto-inicio:
+
+```powershell
+wcrond uninstall
+```
+
 ## 2. Configuración del Sistema (`wcrond.toml`)
 
 La configuración principal del daemon se almacena en `%USERPROFILE%\.wcrond\wcrond.toml`. Si no existe al iniciar, puedes generarlo desde las plantillas incluidas en el código fuente usando `wcrond init`.
@@ -57,7 +80,7 @@ auto_kill_zombies = true
 ### Propiedades de `wcrond.toml`
 
 **Sección `[daemon]`:**
-- `tick_interval`: (float) Intervalo en segundos en que el scheduler verifica tareas pendientes.
+- `tick_interval`: (float) Intervalo en segundos en que el scheduler verifica tareas pendientes. **IMPORTANTE:** No debe superar los `60` segundos. `wcrond` evalúa los trabajos en tiempo real; si el equipo se suspende o hiberna, las tareas que caigan en ese periodo de suspensión se perderán irremediablemente sin importar este valor. Valores mayores a 60s causarán que también se pierdan tareas durante la operación normal del equipo.
 - `default_shell`: (string) Shell por defecto para comandos (`powershell`, `cmd`, `bash`).
 - `default_working_dir`: (string) Directorio de trabajo base si el job no especifica uno.
 - `pid_file`: (string) Ruta del archivo PID relativo a `~/.wcrond/`.
@@ -193,6 +216,14 @@ Estos comandos controlan el ciclo de vida del servicio en background.
     *   **Descripción:** Envía de forma segura una señal de apagado al demonio en ejecución para que cierre su base de datos y detenga tareas planificadas.
     *   **Ejemplo:** `wcrond stop`
 
+*   `wcrond install [--method {registry,startup}]`
+    *   **Descripción:** Registra wcrond para auto-inicio al hacer login en Windows. Por defecto usa el método `registry` (clave HKCU\Run). El método `startup` crea un shortcut en la carpeta Startup del usuario.
+    *   **Ejemplo:** `wcrond install --method registry`
+
+*   `wcrond uninstall`
+    *   **Descripción:** Remueve wcrond de todos los mecanismos de auto-inicio configurados (Registry y Startup folder).
+    *   **Ejemplo:** `wcrond uninstall`
+
 ### 5.2 Comandos de Control (`wcrond-ctl`)
 
 Herramienta diseñada para supervisar y operar sobre los trabajos programados en un demonio en ejecución.
@@ -270,3 +301,6 @@ Herramienta diseñada para supervisar y operar sobre los trabajos programados en
 
 **Problema:** Quiero forzar una tarea para probarla.
 *Solución:* Usa el comando `wcrond-ctl run <nombre_del_job>`.
+
+**Problema:** La máquina se reinició y wcrond no arrancó.
+*Solución:* Verifica que el auto-inicio esté registrado ejecutando `wcrond install --method registry`. Si el daemon no arranca por un PID file stale (de un apagado no limpio), wcrond lo detectará automáticamente y se recuperará.

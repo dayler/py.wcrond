@@ -29,6 +29,14 @@ cd wcrond
 pip install .
 ```
 
+> **Nota:** `pip install .` crea automáticamente la configuración en `~/.wcrond/`, pero **no registra el auto-inicio con Windows**. Para que wcrond sobreviva reinicios del sistema, ejecuta:
+
+```powershell
+.\scripts\install.ps1
+```
+
+Esto registra wcrond en el Registry de Windows para que arranque automáticamente al iniciar sesión. También puedes hacerlo manualmente con `wcrond install --method registry`.
+
 Durante la instalación, `wcrond` inicializará automáticamente su configuración por defecto en `%USERPROFILE%\.wcrond`. Si por alguna razón los archivos no se generan (por ejemplo, instalando desde un _wheel_ distribuido), puedes forzar la inicialización en cualquier momento ejecutando:
 
 ```powershell
@@ -76,6 +84,8 @@ El binario principal controla el ciclo de vida del servicio en segundo plano.
 | `start` | `--foreground`, `--config <ruta>` | Inicia el demonio. Usa `--foreground` para bloquear la terminal.<br>Ej: `wcrond start --foreground` |
 | `status`| `--config <ruta>` | Comprueba rápidamente si el demonio está activo. Retorna código 0 si corre.<br>Ej: `wcrond status` |
 | `stop`  | `--config <ruta>` | Envía una señal IPC para apagar el demonio en ejecución.<br>Ej: `wcrond stop` |
+| `install` | `--method {registry,startup}` | Registra wcrond para auto-inicio al login.<br>Ej: `wcrond install --method registry` |
+| `uninstall` | — | Remueve wcrond del auto-inicio.<br>Ej: `wcrond uninstall` |
 
 ### Control CLI (`wcrond-ctl`)
 Permite interactuar con el demonio en tiempo real. Acepta el flag global `--timeout <segundos>` para ajustar el tiempo máximo de comunicación IPC (default: 5s).

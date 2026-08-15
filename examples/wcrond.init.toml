@@ -5,6 +5,9 @@
 # Puede sobreescribirse con: wcrond --config <path>
 
 [daemon]
+# tick_interval defines the evaluation frequency (in seconds).
+# IMPORTANT: DO NOT set a value greater than 60 seconds. If the system suspends/hibernates,
+# any scheduled executions falling within that suspension period will be permanently lost.
 tick_interval = 1.0
 default_shell = "powershell"
 default_working_dir = "%USERPROFILE%"
