@@ -5,13 +5,33 @@ from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 
+
+def _utc_to_local(utc_iso: Optional[str]) -> Optional[str]:
+    """Convert a UTC ISO timestamp string to local timezone ISO string.
+    
+    This is a purely referential conversion — the result is stored for
+    display/reporting purposes only and does not participate in any logic
+    or calculation.
+    """
+    if not utc_iso:
+        return None
+    try:
+        dt_utc = datetime.fromisoformat(utc_iso)
+        dt_local = dt_utc.astimezone()  # Converts to server's local timezone
+        return dt_local.isoformat()
+    except (ValueError, TypeError):
+        return None
+
+
 @dataclass
 class TaskExecution:
     execution_id: str
     job_id: str
     job_name: str
-    start_time: str
-    end_time: Optional[str]
+    start_time_utc: str
+    start_time_local: Optional[str]
+    end_time_utc: Optional[str]
+    end_time_local: Optional[str]
     duration_s: Optional[float]
     exit_code: Optional[int]
     status: str
@@ -41,8 +61,10 @@ class StateStore:
                     execution_id TEXT PRIMARY KEY,
                     job_id TEXT NOT NULL,
                     job_name TEXT NOT NULL,
-                    start_time TEXT NOT NULL,
-                    end_time TEXT,
+                    start_time_utc TEXT NOT NULL,
+                    start_time_local TEXT,
+                    end_time_utc TEXT,
+                    end_time_local TEXT,
                     duration_s REAL,
                     exit_code INTEGER,
                     status TEXT NOT NULL,
@@ -62,50 +84,55 @@ class StateStore:
                 )
             """)
 
+
     def record_start(self, job_id: str, job_name: str, pid: Optional[int], trigger: str, attempt: int) -> str:
         execution_id = str(uuid.uuid4())
-        start_time = datetime.now(timezone.utc).isoformat()
+        start_time_utc = datetime.now(timezone.utc).isoformat()
+        start_time_local = datetime.now().astimezone().isoformat()
         with self._lock:
             self.conn.execute("""
                 INSERT INTO executions (
-                    execution_id, job_id, job_name, start_time,
+                    execution_id, job_id, job_name, start_time_utc, start_time_local,
                     status, attempt, pid, trigger
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                execution_id, job_id, job_name, start_time,
+                execution_id, job_id, job_name, start_time_utc, start_time_local,
                 "RUNNING", attempt, pid, trigger
             ))
         return execution_id
 
     def record_end(self, execution_id: str, exit_code: Optional[int], status: str, stdout_tail: Optional[str], stderr_tail: Optional[str]):
-        end_time = datetime.now(timezone.utc).isoformat()
-        
+        end_time_utc = datetime.now(timezone.utc).isoformat()
+        end_time_local = datetime.now().astimezone().isoformat()
+
         with self._lock:
             cursor = self.conn.execute(
-                "SELECT start_time FROM executions WHERE execution_id = ?",
+                "SELECT start_time_utc FROM executions WHERE execution_id = ?",
                 (execution_id,)
             )
             row = cursor.fetchone()
             if not row:
                 raise ValueError(f"Execution {execution_id} not found")
-            
-            start_time = datetime.fromisoformat(row["start_time"])
-            end_dt = datetime.fromisoformat(end_time)
-            duration_s = (end_dt - start_time).total_seconds()
-            
+
+            start_time_utc = datetime.fromisoformat(row["start_time_utc"])
+            end_dt = datetime.fromisoformat(end_time_utc)
+            duration_s = (end_dt - start_time_utc).total_seconds()
+
             self.conn.execute("""
                 UPDATE executions
-                SET end_time = ?, duration_s = ?, exit_code = ?, status = ?, stdout_tail = ?, stderr_tail = ?
+                SET end_time_utc = ?, end_time_local = ?, duration_s = ?, exit_code = ?, status = ?, stdout_tail = ?, stderr_tail = ?
                 WHERE execution_id = ?
-            """, (end_time, duration_s, exit_code, status, stdout_tail, stderr_tail, execution_id))
+            """, (end_time_utc, end_time_local, duration_s, exit_code, status, stdout_tail, stderr_tail, execution_id))
 
     def _row_to_execution(self, row: sqlite3.Row) -> TaskExecution:
         return TaskExecution(
             execution_id=row["execution_id"],
             job_id=row["job_id"],
             job_name=row["job_name"],
-            start_time=row["start_time"],
-            end_time=row["end_time"],
+            start_time_utc=row["start_time_utc"],
+            start_time_local=row["start_time_local"],
+            end_time_utc=row["end_time_utc"],
+            end_time_local=row["end_time_local"],
             duration_s=row["duration_s"],
             exit_code=row["exit_code"],
             status=row["status"],
@@ -124,19 +151,19 @@ class StateStore:
             conditions.append("job_id = ?")
             params.append(job_id)
         if since:
-            conditions.append("start_time >= ?")
+            conditions.append("start_time_utc >= ?")
             params.append(since)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        query += " ORDER BY start_time DESC LIMIT ?"
+        query += " ORDER BY start_time_utc DESC LIMIT ?"
         params.append(limit)
-        
+
         cursor = self.conn.execute(query, params)
         return [self._row_to_execution(row) for row in cursor.fetchall()]
 
     def get_running_jobs(self) -> List[TaskExecution]:
         cursor = self.conn.execute(
-            "SELECT * FROM executions WHERE status = 'RUNNING' ORDER BY start_time DESC"
+            "SELECT * FROM executions WHERE status = 'RUNNING' ORDER BY start_time_utc DESC"
         )
         return [self._row_to_execution(row) for row in cursor.fetchall()]
 
@@ -158,7 +185,7 @@ class StateStore:
     def cleanup_old_records(self, days: int):
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         with self._lock:
-            self.conn.execute("DELETE FROM executions WHERE start_time < ?", (cutoff,))
+            self.conn.execute("DELETE FROM executions WHERE start_time_utc < ?", (cutoff,))
 
     def close(self):
         self.conn.close()

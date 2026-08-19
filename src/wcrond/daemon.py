@@ -159,8 +159,8 @@ class WcrondDaemon:
             last_run = "Never"
             hist = self.state_store.get_history(j.job_id, limit=1)
             if hist:
-                last_run = hist[0].start_time
-            
+                last_run = hist[0].start_time_utc
+
             jobs.append({
                 "id": j.job_id,
                 "schedule": j.schedule,
@@ -175,8 +175,8 @@ class WcrondDaemon:
         for h in hist:
             data.append({
                 "job": h.job_id,
-                "start_time": h.start_time,
-                "end_time": h.end_time,
+                "start_time": h.start_time_utc,
+                "end_time": h.end_time_utc,
                 "duration_s": h.duration_s,
                 "status": h.status,
                 "attempt": h.attempt,

@@ -102,7 +102,7 @@ def test_daemon_new_ipc_handlers(mock_load, mock_config):
     daemon.state_store.get_retry_queue.return_value = [{"job_id": "job1", "attempt": 2}]
     daemon.state_store.get_running_jobs.return_value = [MagicMock(job_id="job1", execution_id="exec1")]
     
-    mock_history = MagicMock(start_time="2024-01-01T00:00:00", stdout_tail="hello", stderr_tail="")
+    mock_history = MagicMock(start_time_utc="2024-01-01T00:00:00", stdout_tail="hello", stderr_tail="")
     daemon.state_store.get_history.return_value = [mock_history]
     
     daemon.retry_manager = MagicMock()

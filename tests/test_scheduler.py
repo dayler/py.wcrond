@@ -95,7 +95,7 @@ def test_overlap_skip(scheduler, state_store, executor):
     scheduler.add_job(job)
     
     state_store.get_running_jobs.return_value = [
-        TaskExecution(execution_id="123", job_id="test", job_name="test", start_time="", end_time=None, duration_s=None, exit_code=None, status="RUNNING", attempt=1, pid=123, stdout_tail="", stderr_tail="", trigger="scheduled")
+        TaskExecution(execution_id="123", job_id="test", job_name="test", start_time_utc="", start_time_local=None, end_time_utc=None, end_time_local=None, duration_s=None, exit_code=None, status="RUNNING", attempt=1, pid=123, stdout_tail="", stderr_tail="", trigger="scheduled")
     ]
     
     dt = datetime(2026, 8, 7, 10, 30, 0, tzinfo=timezone.utc)
@@ -107,7 +107,7 @@ def test_overlap_allow(scheduler, state_store, executor):
     scheduler.add_job(job)
     
     state_store.get_running_jobs.return_value = [
-        TaskExecution(execution_id="123", job_id="test", job_name="test", start_time="", end_time=None, duration_s=None, exit_code=None, status="RUNNING", attempt=1, pid=123, stdout_tail="", stderr_tail="", trigger="scheduled")
+        TaskExecution(execution_id="123", job_id="test", job_name="test", start_time_utc="", start_time_local=None, end_time_utc=None, end_time_local=None, duration_s=None, exit_code=None, status="RUNNING", attempt=1, pid=123, stdout_tail="", stderr_tail="", trigger="scheduled")
     ]
     
     dt = datetime(2026, 8, 7, 10, 30, 0, tzinfo=timezone.utc)
@@ -119,7 +119,7 @@ def test_overlap_kill_previous(scheduler, state_store, executor):
     scheduler.add_job(job)
     
     state_store.get_running_jobs.return_value = [
-        TaskExecution(execution_id="123", job_id="test", job_name="test", start_time="", end_time=None, duration_s=None, exit_code=None, status="RUNNING", attempt=1, pid=123, stdout_tail="", stderr_tail="", trigger="scheduled")
+        TaskExecution(execution_id="123", job_id="test", job_name="test", start_time_utc="", start_time_local=None, end_time_utc=None, end_time_local=None, duration_s=None, exit_code=None, status="RUNNING", attempt=1, pid=123, stdout_tail="", stderr_tail="", trigger="scheduled")
     ]
     
     dt = datetime(2026, 8, 7, 10, 30, 0, tzinfo=timezone.utc)

@@ -49,10 +49,10 @@ class Watchdog:
         default_timeout = self.config.default_timeout if hasattr(self.config, 'default_timeout') else 3600
         
         for job_state in running_jobs:
-            if not job_state.start_time:
+            if not job_state.start_time_utc:
                 continue
-            
-            start_dt = datetime.fromisoformat(job_state.start_time)
+
+            start_dt = datetime.fromisoformat(job_state.start_time_utc)
             duration_s = (now - start_dt).total_seconds()
             
             if duration_s > default_timeout * 2:  # Safe heuristic for now
