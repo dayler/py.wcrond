@@ -67,6 +67,10 @@ Muestra una lista de todos los reintentos pendientes debido a fallos.
 ### `wcrond-ctl cancel-retry <job_id>`
 Cancela todos los reintentos que están encolados para un job.
 
+### `wcrond-ctl cancel-all-retries`
+Cancela de forma explícita todos los reintentos pendientes globalmente, para todos los jobs. Esto es útil antes de recargar la configuración (`reload`) si se desea evitar que fallos pasados sigan reintentando con comandos obsoletos.
+- **Salida:** Tabla con columnas `Job` y `Status` mostrando qué trabajos fueron cancelados. Si no hay reintentos pendientes, informa que no hay acciones a realizar.
+
 ### `wcrond-ctl zombies`
 Lista las tareas "zombie" (tareas cuyo tiempo de ejecución ha superado el timeout configurado, pero el proceso subyacente sigue activo).
 

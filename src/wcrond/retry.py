@@ -54,10 +54,20 @@ class RetryManager:
         logger.info(f"Cancelled retry for job {job_id}")
 
     def cancel_all(self):
+        cancelled_jobs = []
         with self._lock:
             for job_id, timer in self.timers.items():
                 timer.cancel()
+                self.state_store.remove_retry(job_id)
+                cancelled_jobs.append({"job": job_id, "status": "cancelled"})
             self.timers.clear()
+        
+        if cancelled_jobs:
+            logger.info(f"Cancelled all pending retries. Jobs affected: {[j['job'] for j in cancelled_jobs]}")
+        else:
+            logger.info("No pending retries to cancel.")
+            
+        return cancelled_jobs
             
     def get_pending_retries(self):
         return self.state_store.get_retry_queue()

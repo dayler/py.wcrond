@@ -83,6 +83,13 @@ def test_cli_cancel_retry_command():
     cli.cmd_cancel_retry(args, client)
     client.send_request.assert_called_with({"cmd": "cancel-retry", "job": "test_job"})
 
+def test_cli_cancel_all_retries_command():
+    args = argparse.Namespace(command="cancel-all-retries")
+    client = MagicMock()
+    client.send_request.return_value = {"status": "ok", "data": [{"job": "j1", "status": "cancelled"}]}
+    cli.cmd_cancel_all_retries(args, client)
+    client.send_request.assert_called_with({"cmd": "cancel-all-retries"})
+
 def test_cli_disable_command():
     args = argparse.Namespace(command="disable", job_id="test_job")
     client = MagicMock()

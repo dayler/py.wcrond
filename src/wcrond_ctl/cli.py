@@ -71,6 +71,15 @@ def cmd_cancel_retry(args, client):
     resp = client.send_request({"cmd": "cancel-retry", "job": args.job_id})
     handle_response(resp, lambda d: print(f"Retries cancelled for '{args.job_id}'"))
 
+def cmd_cancel_all_retries(args, client):
+    resp = client.send_request({"cmd": "cancel-all-retries"})
+    def cb(data):
+        if not data:
+            print("No pending retries to cancel.")
+        else:
+            print_table(["Job", "Status"], [[d.get("job", ""), d.get("status", "")] for d in data])
+    handle_response(resp, cb)
+
 def cmd_disable(args, client):
     resp = client.send_request({"cmd": "disable", "job": args.job_id})
     handle_response(resp, lambda d: print(f"Job '{args.job_id}' disabled"))
@@ -152,6 +161,8 @@ def main():
     p_cancel = subparsers.add_parser("cancel-retry", help="Cancel pending retries")
     p_cancel.add_argument("job_id", help="Job ID")
 
+    p_cancel_all = subparsers.add_parser("cancel-all-retries", help="Cancel all pending retries explicitly")
+
     p_disable = subparsers.add_parser("disable", help="Disable a job")
     p_disable.add_argument("job_id", help="Job ID")
 
@@ -184,6 +195,7 @@ def main():
         "run": cmd_run,
         "kill": cmd_kill,
         "cancel-retry": cmd_cancel_retry,
+        "cancel-all-retries": cmd_cancel_all_retries,
         "disable": cmd_disable,
         "enable": cmd_enable,
         "zombies": cmd_zombies,

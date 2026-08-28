@@ -79,6 +79,7 @@ class WcrondDaemon:
         self.ipc.handlers["retries"] = self._handle_ipc_retries
         self.ipc.handlers["kill"] = self._handle_ipc_kill
         self.ipc.handlers["cancel-retry"] = self._handle_ipc_cancel_retry
+        self.ipc.handlers["cancel-all-retries"] = self._handle_ipc_cancel_all_retries
         self.ipc.handlers["disable"] = self._handle_ipc_disable
         self.ipc.handlers["enable"] = self._handle_ipc_enable
         self.ipc.handlers["zombies"] = self._handle_ipc_zombies
@@ -243,6 +244,14 @@ class WcrondDaemon:
             return {"status": "error", "message": "job ID required"}
         self.retry_manager.cancel_retry(job_id)
         return {"status": "ok", "data": "cancelled"}
+
+    def _handle_ipc_cancel_all_retries(self, req):
+        try:
+            cancelled = self.retry_manager.cancel_all()
+            return {"status": "ok", "data": cancelled}
+        except Exception as e:
+            logger.error(f"Error cancelling all retries: {e}")
+            return {"status": "error", "message": str(e)}
 
     def _handle_ipc_disable(self, req):
         job_id = req.get("job")
